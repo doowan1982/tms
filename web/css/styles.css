@@ -1,0 +1,214 @@
+body, body *{
+    margin:0px;
+    padding:0px;
+}
+
+input{
+    height:31px;
+    line-height: 31px;
+}
+
+dt{
+    line-height: 25px;
+}
+dd{
+    padding-left:25px;
+    line-height:25px;
+}
+
+.input-400{
+    width:401px;
+}
+.input-200{
+    width:201px;
+}
+
+.input-100{
+    width:101px;
+}
+
+.input-80{
+    width:81px;
+}
+
+.input-60{
+    width:61px;
+}
+
+.font-red{
+    color: red;
+}
+
+.font-blue{
+    color: blue;
+}
+
+.font-gray{
+    color:#D3D3D3;
+}
+
+.font-white{
+    color: #fff;
+}
+
+.bold-font{
+    font-weight: bold;
+}
+
+.font-12{
+    font-size: 12px;
+}
+
+.font-14{
+    font-size: 14px;
+}
+
+.font-16{
+    font-size: 16px;
+}
+
+.font-18{
+    font-size: 18px;
+}
+
+.font-20{
+    font-size: 20px;
+}
+
+.font-22{
+    font-size: 22px;
+}
+
+.panel-top{
+    border-top: 1px solid #CDAF95;
+}
+
+.panel-left{
+    border-left: 1px solid #CDAF95;
+}
+
+.panel-right{
+    border-right: 1px solid #CDAF95;
+}
+
+.panel-bottom{
+    border-bottom: 1px solid #CDAF95;
+}
+
+.block-container{
+    width:100%;
+}
+
+.float-left{
+    float: left;
+}
+
+.float-right{
+    float: right;
+}
+
+.float-clear{
+    clear: both;
+    float: none;
+}
+
+.header-container{
+    background-color: #EEE8CD;
+    color:#9370DB;
+}
+
+.container-content{
+    padding:10px;
+}
+
+.header-container .container-content,
+.nav-container  .container-content{
+    line-height: 20px;
+    padding:5px 10px;
+}
+
+.nav-container{
+    background-color: #FFF5EE;
+}
+
+.nav-container .container-content li{
+    float:left;
+    margin-right:20px;
+}
+
+li{
+    list-style: none;
+}
+
+.text-align-left{
+    text-align: left;
+}
+
+.text-align-center{
+    text-align: center;
+}
+
+.text-align-right{
+    text-align: right;
+}
+
+.table-container table{
+    background-color: #C1CDCD;
+    font-size: 14px;
+}
+
+.table-container table thead{
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.table-container table td{
+    background-color: #fff;
+    padding:5px;
+    text-align: center;
+}
+
+.container-form{
+    padding:5px 0px;
+}
+
+.datepicker{
+    width:150px;
+}
+
+.paginattion-container{
+    float:right;
+}
+
+.paginattion-container .pagination{
+    font-weight: bold;
+    float:left;
+    font-size:18px;
+    line-height: 30px;
+}
+
+.paginattion-container .pagination li{
+    padding: 2px;
+    line-height: 20px;
+    display: inline;
+}
+
+.change-point{
+    color:#fff;
+    background-color: #EE6363;
+    padding:2px;
+    margin:3px;
+}
+
+.red{
+    color:red;
+    padding:0px 3px;
+}
+.blue{
+    color:blue;
+}
+
+#loadingDialog{
+    text-align:center; 
+    font-weight:bold;
+}
