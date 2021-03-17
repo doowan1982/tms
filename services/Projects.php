@@ -72,29 +72,6 @@ class Projects extends \app\base\Service{
     }
 
     /**
-     * 返回指定用户的项目信息
-     * @param AbstractMember $member
-     * @return \yii\data\DataProviderInterface
-     */
-    public function getProjectsByMember(AbstractMember $member){
-        $condition = [
-            'is_delete' => Project::NON_DELETE,
-        ];
-        $query = Project::find()->joinWith(
-                [
-                    'tasks' => function($query) use ($member){
-                        $query->where(['receive_user_id' => $member->id]);
-                    }
-                ]
-            )
-            ->orderBy(['update_time' => SORT_DESC]);
-        if(isset($this->parameters['name']) && empty($this->parameters['name'])){
-            $query->andWhere(['like', 'name', $this->parameters['name']]);
-        }
-        return $this->getDataProvider($query, 20);
-    }
-
-    /**
      * 启动项目
      * @return boolean 如果成功返回true
      */
