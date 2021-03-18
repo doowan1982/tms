@@ -1,7 +1,6 @@
 <?php
 namespace app\services;
 
-use app\base\AbstractMember;
 use app\records\Project;
 use app\records\Task;
 use app\records\Member;
@@ -97,7 +96,7 @@ class Projects extends \app\base\Service{
 
     /**
      * 返回指定用户的任务信息
-     * @param AbstractMember $member
+     * @param Member $member
      * @return \yii\data\DataProviderInterface
      */
     public function getTasksByMember(Member $member, $conditions=[]){
@@ -108,7 +107,7 @@ class Projects extends \app\base\Service{
 
     /**
      * 返回指定项目的任务信息
-     * @param AbstractMember $member
+     * @param Project $project
      * @return \yii\data\DataProviderInterface
      */
     public function getTasksByProject(Project $project, $conditions=[]){
