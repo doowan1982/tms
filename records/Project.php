@@ -81,11 +81,16 @@ class Project extends \app\base\BaseAR{
      */
     public function fields(){
         $fields = parent::fields();
-        $this->create_time = date('Y-m-d H:i:s', $this->create_time);
-        $this->expected_start_time = date('Y-m-d H:i', $this->expected_start_time);
-        $this->expected_end_time = date('Y-m-d H:i', $this->expected_end_time);
-        $this->real_start_time = date('Y-m-d H:i', $this->real_start_time);
-        $this->real_end_time = date('Y-m-d H:i', $this->real_end_time);
+        if(is_integer($this->create_time))
+            $this->create_time = date('Y-m-d H:i:s', $this->create_time);
+        if(is_integer($this->expected_start_time))
+            $this->expected_start_time = date('Y-m-d H:i', $this->expected_start_time);
+        if(is_integer($this->expected_end_time))
+            $this->expected_end_time = date('Y-m-d H:i', $this->expected_end_time);
+        if(is_integer($this->real_start_time))
+            $this->real_start_time = date('Y-m-d H:i', $this->real_start_time);
+        if(is_integer($this->real_end_time))
+            $this->real_end_time = date('Y-m-d H:i', $this->real_end_time);
         return $fields;
     }
 

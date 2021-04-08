@@ -215,6 +215,9 @@ class Tasks extends \app\base\Service{
         $mainTask = null;
         if($task->task_id > 0){
             $mainTask = Task::findOne($task->task_id);
+            if($mainTask->project_id != $task->project_id){
+                return $this->setError("与主任务不同属一个项目");
+            }
         }
 
         $event = new TaskEvent([
@@ -233,13 +236,32 @@ class Tasks extends \app\base\Service{
 
         $transaction = Yii::$app->db->beginTransaction();
         try{
+            //记录原始主任务编号
+            $oldMainTaskId = $task->getOldAttribute('task_id');
             if(!$task->save()){
                 return $this->setError('编辑失败');
             }
-            //新增时，则记录主任务
-            //注意，此处增加活跃数对应的将在$this->isActived()为false，进行递减
-            if($isNewRecord && $mainTask != null && !$this->updateForkActivityCount($mainTask, $task)){
-                return $this->setError('主任务活跃数更新失败');
+            //主任务更新操作
+            if($mainTask != null || $oldMainTaskId > 0){
+                //新增时，则记录主任务
+                //注意，此处增加活跃数对应的将在$this->isActived()为false，进行递减
+                if($isNewRecord && !$this->updateForkActivityCount($mainTask, $task)){
+                    return $this->setError('主任务活跃数更新失败');
+                }else if(!$isNewRecord){ //如果主任务发生改变，则更新原主任务和新主任的活跃数量
+                    if($mainTask != null && $mainTask->id != $oldMainTaskId){
+                        $mainTask->fork_activity_count++;
+                        if($mainTask->update() === false){
+                            return $this->setError('重新设置主任务活跃数失败');
+                        }                        
+                    }
+                    if($oldMainTaskId > 0){
+                        $oldMainTask = Task::findOne($oldMainTaskId);
+                        $oldMainTask->fork_activity_count--;
+                        if($oldMainTask->update() === false){
+                            return $this->setError('重新设置原主任务活跃数失败');
+                        }
+                    }
+                }
             }
             //与上一个实施人不同，则自动领取
             if($isAutoAllocate){
@@ -665,6 +687,31 @@ class Tasks extends \app\base\Service{
                     ->limit($sequence)
                     ->one();
         return $log;
+    }
+
+    /**
+     * 返回指定Task的子任务数组
+     * @return array Task
+     */
+    public function getTasks(Task $task){
+        return $this->_getTasks($task->project_id, [$task->id]);
+    }
+
+    private function _getTasks($projectId, array $id){
+        $tasks = Task::findAll([
+                'task_id' => $id,
+                'project_id' => $projectId,
+                'is_delete' => Task::NON_DELETE
+            ]);
+        $result = $tasks;
+        $id = [];
+        foreach($tasks as $task){
+            $id[] = $task->id;
+        }
+        if(count($id) === 0){
+            return $result;
+        }
+        return array_merge($result, $this->_getTasks($projectId, $id));
     }
 
     //日志查询

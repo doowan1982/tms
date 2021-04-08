@@ -70,10 +70,10 @@ class BaseController extends \yii\web\Controller{
     {
         $behaviors = parent::behaviors();
         $behaviors['access'] = Yii::$app->params['accessControl'];
-        // $behaviors['rateLimiter'] = [
-        //       'class' => \yii\filters\RateLimiter::className(),
-        //       'errorMessage' => '访问过于频繁',
-        // ];
+        $behaviors['rateLimiter'] = [
+              'class' => \yii\filters\RateLimiter::className(),
+              'errorMessage' => '访问过于频繁',
+        ];
         return $behaviors;
     }
     

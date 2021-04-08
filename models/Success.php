@@ -20,6 +20,7 @@ class Success extends \app\base\BaseModel{
      * @return string
      */
     public function data(){
+        $this->data = \Yii::createObject('yii\rest\Serializer')->serialize($this->data);
         return $this->toArray();
     }
 

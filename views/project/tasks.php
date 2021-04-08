@@ -52,6 +52,8 @@ $parameters = $this->context->parameters;
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
+                <input type='hidden' name='publisher_id' value="<?=isset($this->context->parameters['publisher_id']) ? $this->context->parameters['publisher_id'] : ''?>"/>
+                <input type='hidden' name='receive_user_id' value="<?=isset($this->context->parameters['receive_user_id']) ? $this->context->parameters['receive_user_id'] : ''?>"/>
                 <button type="submit" class='submit'>查询</button>
             </form>
 

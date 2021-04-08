@@ -10,7 +10,7 @@ class Position extends \app\base\BaseModel{
     //所在的url
     public $jumpUrl = '';
 
-    //下一个Position，如果为null，则为最后一集位置
+    //下一个Position，如果为null，则为最后一级位置
     public $nextPosition;
 
     public function setNextPosition($position){

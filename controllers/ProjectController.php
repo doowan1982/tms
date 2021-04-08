@@ -59,11 +59,11 @@ class ProjectController extends BaseController{
     public function actionTasks(){
         $service = \Yii::$app->get('projectService');
         $project = $service->findById($this->get('project_id'));
-        $this->setPosition(new Position(['name' => '项目管理', 'jumpUrl' => Constants::PROJECT_HOME]));
-        $this->setPosition(new Position(['name' => "【{$project->name}】任务列表"]));
         if($project == null){
             return $this->error('项目不存在');
         }
+        $this->setPosition(new Position(['name' => '项目管理', 'jumpUrl' => Constants::PROJECT_HOME]));
+        $this->setPosition(new Position(['name' => "【{$project->name}】任务列表"]));
         $startTime = $this->get('start_time');
         $endTime = $this->get('end_time');
         $params['timestamp_range'] = Helper::timestampRange($startTime, $endTime);
@@ -83,6 +83,24 @@ class ProjectController extends BaseController{
                 'project' => $project,
                 'priorities' => Task::getPriorities(),
             ]);
+    }
+
+    public function actionGetMainTaskCandidates(){
+        $service = \Yii::$app->get('projectService');
+        $project = $service->findById($this->get('project_id'));
+        if($project == null){
+            return $this->error('项目不存在');
+        }
+        $task = \Yii::$app->get('taskService')->getTaskById($this->get('task_id', 0));
+        if($task == null){
+            return $this->error('任务不能为空');
+        }
+        $name = $this->get('name', null);
+        $tasks = $service->getMainTaskCandidates($project, $task, $name);
+        foreach($tasks as $key=>$task){
+            $tasks[$key] = $task->toArray([], ['publisher', 'receiver']);
+        }
+        return $this->success('success', $tasks);
     }
 
     public function actionDelete(){

@@ -49,6 +49,7 @@ include_once(Yii::getAlias('@view/common/header.php'));
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
+                <input type='hidden' name='receive_user_id' value="<?=isset($this->context->parameters['receive_user_id']) ? $this->context->parameters['receive_user_id'] : ''?>"/>
                 <button type="submit" class='submit'>查询</button>
             </form>
             <div class='float-right'>

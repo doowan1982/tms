@@ -2,7 +2,7 @@
 use yii\widgets\LinkPager;
 use app\records\Task;
 include_once(Yii::getAlias('@view/common/header.php'));
-$parameters = $this->context->parameters
+$parameters = $this->context->parameters;
 ?>
 <div class='block-container'>
     <div class='container-content'>
@@ -197,32 +197,11 @@ $parameters = $this->context->parameters
         </table>
     </div>
 </script>
+<!-- 载入项目搜索 -->
+<?php
+include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
+?>
 <script type='text/javascript'>
-    //搜索项目
-    function searchProject(name){
-        name = name || '';
-        var url = '/project/search';
-        if(name !== ''){
-            url += '?name=' + name;            
-        }else{
-            name = '';
-        }
-        request(url, function(rep){
-            var searchProject = $('#searchProject');
-            if(searchProject.length > 0){
-                searchProject.remove();
-            }
-            var searchProject = $(template('searchTpl', {
-                'list' : rep.data, 
-                'name': name 
-            }));
-            searchProject.find('button').button();
-            Dialog.content(searchProject, {
-                title: '选择项目',
-                width : '60%',
-            });
-        });
-    }
 
     $("button").button();
 

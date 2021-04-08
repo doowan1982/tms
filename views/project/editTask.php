@@ -13,12 +13,15 @@ $array = $task->toArray();
                 <col width='130' style='text-align:rigth;' align="right"/>
                 <col width='*' align="left"/>
                 <tr>
+                    <td class='red'>所在项目</td>
+                    <td>
+                        <span><a href='#' id='modifyTheProject' title='点击修改所在项目' class='projectName'><?= $project->name ?></a></span>
+                    </td>
+                </tr>
+                <tr>
                     <td class='red'>任务名称</td>
                     <td>
-                        <input type="text" name='name' style='width:70%' value='<?= isset($task['name']) ? $task['name'] : ''?>'>
-                        <?php if($parentTask != null):?>
-                            <span>【<?= $parentTask->name ?>】子任务</span>
-                        <?php endif;?>
+                        <input type="text" name='name' style='width:70%' value='<?= isset($task['name']) ? $task['name'] : ''?>' placeholder='请简要填写便于搜索，详情可补充于任务内容中'>
                     </td>
                 </tr>
                 <tr>
@@ -85,6 +88,20 @@ $array = $task->toArray();
                 </tr>
                 <?php endif;?>
                 <tr>
+                    <td>所在主任务</td>
+                    <td>
+                        <?php 
+                            $parentTaskId = 0;
+                            $parentTaskName = '暂无';
+                            if($parentTask != null){
+                                $parentTaskId = $parentTask->id;
+                                $parentTaskName = $parentTask->name;
+                            }
+                        ?>
+                        <span><a href='#' title='<?= $parentTaskId > 0 ? '修改主任务' : '设置主任务'?>' id='changeParentTask'><?= $parentTaskName?></a></span>&nbsp;&nbsp;<span id='removeMainTask'></span>
+                    </td>
+                </tr>
+                <tr>
                     <td class='red'>任务内容</td>
                     <td>
                         <textarea name='description' id='description' rows="20" cols="40">
@@ -103,8 +120,65 @@ $array = $task->toArray();
     </div>
     <div class='float-clear'></div>
 </div>
+<!-- 载入项目搜索 -->
+<?php
+include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
+?>
+
+<script type='text/html' id='tasksTpl'>
+    <div id='searchTasks'>
+        <div class='container-content'>
+            <form action='/project/tasks-json' method='get'>
+            <input type="text" name='name' value="{{$data.name}}" placeholder='任务名称' class='input-100'>
+            <button type="button" id='searchTasksButton'>查询</button>
+            </form>
+        </div>
+        <div class='taskList table-container'>
+        [data/]
+        </div>
+    </div>
+</script>
+
+<script type="text/html"  id='taskListTpl'>
+    <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
+        <thead>
+        <tr>
+            <td width="80">编号</td>
+            <td width="*">任务名称</td>
+            <td width="120">发布人/发布时间</td>
+            <td width="130">接收人/接收时间</td>
+            <td width='80'>操作</td>
+        </tr>
+        </thead>
+        <tbody>
+        {{if $data.list.length > 0}}
+            {{each $data.list}}
+                <tr>
+                    <td>{{$value['id']}}</td>
+                    <td>{{$value['name']}}</td>
+                    <td>{{$value.publisher.real_name}}<br>{{$value.publish_time}}</td>
+                    <td>{{$value.receiver.real_name}}<br>{{$value.receive_time}}</td>
+                    <td>{{if $value.unselected}}-{{else}}<a href='#' class='chooseToParentTask' data-id='{{$value.id}}' data-name='{{$value.name}}'>选择</a>{{/if}}</td>
+                </tr>
+            {{/each}}
+        {{else}}
+            <tr><td colspan="5" align="center">暂无数据</td></tr>
+        {{/if}}
+        </tbody>
+    </table>
+</script>>
+
 <script type="text/javascript" src="/js/kindeditor/kindeditor-all-min.js"></script>
 <script type='text/javascript'>
+    function toggleRemoveMainTaskButton(){
+        var obj = $('#removeMainTask');
+        if($('input[name=task_id]').val() > 0){
+            obj.html("<a href='#' title='移除'>X</a>");
+        }else{
+            obj.html('');
+        }
+    }
+    toggleRemoveMainTaskButton();
     $("input[name='name']").autocomplete();
     $("select[name='type']" ).selectmenu({
         'width' : 200,
@@ -154,6 +228,95 @@ $array = $task->toArray();
             });
         }, false);
         
+    });
+
+    $('body').on('click', '.chooseTheProject', function(){
+        var project = $('input[name=project_id]');
+        var that = $(this);
+        project.val(that.attr('data-id'));
+        $('.projectName').html(that.attr('data-name'));
+        Dialog.getDialogContainer('dialog').dialog("close");
+    })
+
+    $('#modifyTheProject').click(function(){
+        var projectId = $('input[name=project_id]').val();
+        searchProject('', {
+            'actions' : function(value){
+                if(value['id'] == projectId){
+                    return '-';
+                }
+                return '<a href="#" class="chooseTheProject" data-id="'+value['id']+'" data-name='+value['name']+'>选择</a>';
+            },
+            'complete' : function(data){
+                
+            }
+        });
+        return false;
+    });
+
+    $('#removeMainTask').on('click', 'a', function(){
+        $('input[name=task_id]').val(0);
+        $('#changeParentTask').html('暂无','设置主任务');
+        $(this).remove();
+    });
+
+    $('#changeParentTask').click(function(){
+        var that = $(this);
+        var projectId = $('input[name=project_id]').val();
+        loadTaskDialogContent(projectId);
+        return false;
+    });
+
+    //加载搜索的对话框
+    function loadTaskDialogContent(id, name){
+        var that = $('#changeParentTask');
+        name = name || '';
+        var taskId = $('input[name=id]').val();
+        var url = '/project/get-main-task-candidates?project_id='+id+'&task_id='+taskId;
+        if(name){
+            url += "&name="+name;
+        }
+        request(url, function(rep){
+            for(var i in rep.data){
+                var data = rep.data[i];
+                data.receiver = data.receiver || {
+                    'real_name' : '暂无',
+                }
+            }
+            var html = template('taskListTpl', {
+                    'list' : rep.data
+                });
+            var searchTasks = $('#searchTasks');
+            if(searchTasks.length == 0){
+                var searchBlock = template('tasksTpl', {
+                    'name' : name
+                });
+                html = searchBlock.replace('[data/]', html);
+            }else{
+                searchTasks.find('.taskList').html(html);
+                return;              
+            }
+
+            Dialog.content(html, {
+                title: '选择主任务【仅限于所在项目】',
+                width : '70%'
+            });
+        });
+    }
+
+    $('body').on('click', '#searchTasksButton', function(){
+        var id = $('input[name=project_id]').val();
+        var name = $('#searchTasks').find('input[name=name]').val();
+        loadTaskDialogContent(id, name);
+    })
+
+    $('body').on('click', '.chooseToParentTask', function(){
+        var task = $(this);
+        $('input[name=task_id]').val(task.attr('data-id'));
+        $('#changeParentTask').html(task.attr('data-name')).attr('title','修改主任务');
+        $('#searchTasks').remove();
+        toggleRemoveMainTaskButton();
+        Dialog.getDialogContainer('dialog').dialog("close");
     });
 
     var editor;
