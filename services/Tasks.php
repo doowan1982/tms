@@ -9,12 +9,16 @@ use app\records\TaskDetail;
 use app\records\TaskLog;
 use app\records\TaskCategory;
 use app\records\TaskCodeFragment;
+use app\records\Project;
 use app\events\TaskEvent;
 use app\events\TaskFinishEvent;
 use app\events\TaskProcessingEvent;
 use app\events\TaskTerminateOrRestartEvent;
+use app\events\ExchangeEvent;
 use app\models\TaskProgress;
 use app\models\Constants;
+use app\models\TaskStatistics;
+use yii\helpers\ArrayHelper;
 class Tasks extends \app\base\Service{
 
     /**
@@ -66,6 +70,11 @@ class Tasks extends \app\base\Service{
      * 任务终止或者重启后置事件
      */
     const EVENT_AFTER_TERMINATE_OR_RESTART = 'afterTerminateOrRestart';
+
+    /**
+     * 子任务变更事件
+     */
+    const EVENT_EXCHANGE_TASK = 'exchangeTask';
     
     /**
      * 返回一条任务记录
@@ -200,9 +209,8 @@ class Tasks extends \app\base\Service{
         if($project == null){
             return $this->setError("无法创建任务，原因：项目不存在【{$task->project_id}】");
         }
-
         if(!$this->isActived($task)){
-            return $this->setError('任务不可操作');
+            return $this->nonActivedTaskSave($task);
         }
         if($task->expected_finish_time > 0 && $task->expected_finish_time < time()){
             return $this->setError('预期完成时间需大于当前时间');
@@ -215,8 +223,8 @@ class Tasks extends \app\base\Service{
         $mainTask = null;
         if($task->task_id > 0){
             $mainTask = Task::findOne($task->task_id);
-            if($mainTask->project_id != $task->project_id){
-                return $this->setError("与主任务不同属一个项目");
+            if($mainTask->id === $task->id){
+                return $this->setError('主任务设置重名');
             }
         }
 
@@ -238,30 +246,21 @@ class Tasks extends \app\base\Service{
         try{
             //记录原始主任务编号
             $oldMainTaskId = $task->getOldAttribute('task_id');
-            if(!$task->save()){
-                return $this->setError('编辑失败');
-            }
             //主任务更新操作
             if($mainTask != null || $oldMainTaskId > 0){
                 //新增时，则记录主任务
                 //注意，此处增加活跃数对应的将在$this->isActived()为false，进行递减
-                if($isNewRecord && !$this->updateForkActivityCount($mainTask, $task)){
-                    return $this->setError('主任务活跃数更新失败');
-                }else if(!$isNewRecord){ //如果主任务发生改变，则更新原主任务和新主任的活跃数量
-                    if($mainTask != null && $mainTask->id != $oldMainTaskId){
-                        $mainTask->fork_activity_count++;
-                        if($mainTask->update() === false){
-                            return $this->setError('重新设置主任务活跃数失败');
-                        }                        
+                if($isNewRecord){
+                    $this->changeForkTaskCount($mainTask);
+                    if(!$this->updateForkActivityCount($mainTask, $task)){
+                        return $this->setError('主任务活跃数更新失败');
                     }
-                    if($oldMainTaskId > 0){
-                        $oldMainTask = Task::findOne($oldMainTaskId);
-                        $oldMainTask->fork_activity_count--;
-                        if($oldMainTask->update() === false){
-                            return $this->setError('重新设置原主任务活跃数失败');
-                        }
-                    }
+                }else if(!$isNewRecord && !$this->exchangeTask($task, $this->getTaskById($oldMainTaskId), $mainTask)){ //如果主任务发生改变，则更新原主任务和新主任的活跃数量
+                    return false;
                 }
+            }
+            if(!$task->save()){
+                return $this->setError('编辑失败');
             }
             //与上一个实施人不同，则自动领取
             if($isAutoAllocate){
@@ -297,20 +296,95 @@ class Tasks extends \app\base\Service{
     }
 
     /**
-     * 更新主任务的子任务活跃数量
-     * @author doowan
-     * @date   2020-11-21
-     * @param  Task       $task 主任务
-     * @param  Task       $fork 子任务
+     * $task不再活跃状态时的数据更新
+     * 仅支持项目和主任务的变更
+     * @param  Task   $task
      * @return boolean
      */
-    public function updateForkActivityCount(Task $task, Task $fork){
-        if($this->isActived($fork)){
-            $task->fork_activity_count++;
-        }else{
-            $task->fork_activity_count--;
+    public function nonActivedTaskSave(Task $task){
+        $projectId = $task->project->id;
+        //不活跃的任务仅可更新所在项目以及主任务
+        $mainTask = $task->mainTask; //当前的主任务
+        $task->setAttributes($task->getOldAttributes());
+        $prevTask = $mainTask; //默认为同一任务
+        //$mainTask为null则从$prevTask中删除了对应的父级任务
+        if($mainTask === null || $mainTask != null && $task->task_id !== $mainTask->id){
+            $prevTask = Yii::$app->get('taskService')->getTaskById($task->task_id);
         }
-        return $this->save($task) !== false;
+        $task->project_id = $projectId;
+        $transaction = Yii::$app->db->beginTransaction();
+        try{
+            //$mainTask为null则从$prevTask中删除了对应的父级任务
+            if(($mainTask === null || $mainTask !== $prevTask) && !$this->exchangeTask($task, $prevTask, $mainTask)){
+                return false;
+            }
+            if($task->update() === false){
+                return $this->setError('非活跃任务保存失败');
+            }
+            $transaction->commit();
+        }catch(\Exception $e){
+            $transaction->rollBack();
+            return $this->setError($e->getMessage());
+        }
+        return true;
+    }
+
+    /**
+     * 将$task从$from移至$to中
+     * $from的活跃子任务数量-1，同时$to的活跃子任务数量+1
+     * @param  Task $task 
+     * @param  Task $from 移动之前的任务
+     * @param  Task $to 移动之后的任务
+     * @return boolean
+     */
+    public function exchangeTask(Task $task, $from, $to){
+        //同一任务无需交换
+        if($from != null && $to != null && $from->id === $to->id){
+            return true;
+        }
+
+        $task->task_id = ($to === null ? 0 : $to->id); //如果为null，则不存在上级任务，设置为0
+        list($forkTaskId, $level) = $this->getAllForkTaskId($task);
+        if($level >= Task::MAX_COUNT_FORK_TASK){
+            return $this->setError('层级嵌套超出['.Task::MAX_COUNT_FORK_TASK.']，无法设置子任务。');
+        }
+        //检查$task所有子集以确保$to不为环形依赖
+        //比如：$task->a->b->c，然后c->$task
+        if(in_array($task->task_id, $forkTaskId)){
+            return $this->setError('环形依赖，无法设置子任务');
+        }
+        $transaction = Yii::$app->db->beginTransaction();
+        try{
+            if($to != null){
+                $this->changeForkTaskCount($to);
+                if($this->isActived($task)){
+                    $to->fork_activity_count++;                      
+                }
+                if($to->update() === false){
+                    return $this->setError('任务更换失败');
+                }  
+            }
+            if($from != null){
+                $this->changeForkTaskCount($from, false);
+                if($this->isActived($task)){
+                    $from->fork_activity_count--;
+                    
+                }
+                if($from->update() === false){
+                    return $this->setError('任务更换失败');
+                }
+            }
+            $this->trigger(self::EVENT_EXCHANGE_TASK, new ExchangeEvent([
+                    'task' => $task,
+                    'from' => $from,
+                    'to' => $to
+                ]));
+            $transaction->commit(); 
+        }catch(\Exception $e){
+            $transaction->rollBack();
+            return $this->setError($e->getMessage());
+        }
+        return true;
     }
 
     /**
@@ -376,10 +450,6 @@ class Tasks extends \app\base\Service{
             return $this->setError('仅能对自己创建的任务做删除操作');
         }
 
-        if(!$this->isDeleted($task) || !$this->isActived($task)){
-            return $this->setError('任务已开始，无法被删除');
-        }
-
         if($task->fork_activity_count > 0){
             return $this->setError('该任务存在子任务');
         }
@@ -392,11 +462,23 @@ class Tasks extends \app\base\Service{
         if($task->task_id > 0){
             $mainTask = Task::findOne($task->task_id);
         }
-        if($mainTask != null){
-            $this->updateForkActivityCount($mainTask, $task);
-        }
 
-        return $task->update() !== false;
+        $transaction = Yii::$app->db->beginTransaction();
+        try{
+            if($mainTask != null){
+                $this->changeForkTaskCount($mainTask, false);
+                $this->updateForkActivityCount($mainTask, $task);
+            }
+
+            if(!$task->update()){
+                return $this->setError('删除失败');
+            };            
+            $transaction->commit();
+        }catch(\Exception $exception){
+            $transaction->rollBack();
+            return $this->setError($exception->getMessage());
+        }
+        return true;
     }
 
     /**
@@ -660,6 +742,33 @@ class Tasks extends \app\base\Service{
     }
 
     /**
+     * 返回指定项目的任务统计数据
+     * @param  Project $project
+     * @param  Task $task
+     * @param  array $params 查询参数
+     * @return array
+     */
+    public function statistics(Project $project, $params=[], $ignoreProject=false){
+        $query = Task::find()->alias('t')
+                        ->joinWith('receiver')
+                        ->andFilterWhere([
+                            'project_id' => $ignoreProject ? null : $project->id,
+                            'is_delete' => Task::NON_DELETE,
+                        ]);
+        $this->conditionFilter($query, $params, ['task_id', 't.task_id']);
+        $this->conditionFilter($query, $params, ['id', 't.id']);
+        $this->conditionFilter($query, $params, ['timestamp_range', 't.create_time', self::RANGE]);
+        $this->conditionFilter($query, $params, ['receive_user_id', 't.receive_user_id']);
+
+        $tasks = $query->orderBy(['receive_user_id' => SORT_ASC, 't.status' => SORT_ASC])
+            ->all();
+        return [
+            'list' => TaskStatistics::stat($tasks),
+            'undo_count' => TaskStatistics::$undoTasksCount,
+        ];
+    }
+
+    /**
      * 保存任务的代码段
      * @param  Task   $task
      * @param  string $fragment
@@ -690,11 +799,77 @@ class Tasks extends \app\base\Service{
     }
 
     /**
+     * 返回$task所有的子任务id
+     * @param  Task   $task
+     * @return array 第一个值为id数组，第二个值为具有的层级
+     */
+    public function getAllForkTaskId(Task $task){
+        $limit = Task::MAX_COUNT_FORK_TASK;
+        $id = $task->id;
+        $idArray = [];
+        //子任务建立当前仅限制为10级，大于1则不包含$task级
+        while(true){
+            $id = Task::find()->select('id')
+                        ->where([
+                            'task_id' => $id,
+                            'is_delete' => Task::NON_DELETE
+                        ])
+                        ->asArray()
+                        ->all();
+            $id = ArrayHelper::getColumn($id, 'id');
+            if(empty($id) || --$limit <= 1){
+                break;
+            }
+            $idArray = array_merge($idArray, $id);
+        }
+        return [$idArray, Task::MAX_COUNT_FORK_TASK - $limit];
+    }
+
+    /**
+     * 返回多层级所有任务的数组
+     * @param  Task   $task
+     * @return array
+     */
+    public function getAllForkTasks(Task $task){
+        list($id, $level) = $this->getAllForkTaskId($task);
+        return Task::find()->alias('t')
+                            ->joinWith('project')
+                            ->where([
+                                't.is_delete' => Task::NON_DELETE,
+                                't.id' => $id,
+                            ])
+                            ->all();
+    }
+
+    /**
      * 返回指定Task的子任务数组
      * @return array Task
      */
     public function getTasks(Task $task){
         return $this->_getTasks($task->project_id, [$task->id]);
+    }
+
+    /**
+     * 返回指定用户最近$num条操作的任务数据
+     * @param Member $member
+     * @param int $num
+     * @return array TaskLifecycle
+     */
+    public function getRecentTouchTasksByMember(Member $member, $num=20){
+        $query = TaskLifecycle::find()
+                        ->select('max(id) as id')
+                        ->where(['member_id' => $member->id])
+                        ->groupBy('task_id')
+                        ->orderBy(['id' => SORT_DESC]);
+        return TaskLifecycle::find()->alias('tl')
+                    ->joinWith('task')
+                    ->limit($num)
+                    ->where(['tl.id' => $query])
+                    ->orderBy([
+                        'tl.create_time' => SORT_DESC,
+                        'tl.id' => SORT_DESC
+                    ])
+                    ->all();
     }
 
     private function _getTasks($projectId, array $id){
@@ -733,6 +908,32 @@ class Tasks extends \app\base\Service{
         $this->conditionFilter($query, $where, ['type', 't.type']);
         $where['t.is_delete'] = Task::NON_DELETE;
         return $query->andFilterWhere($where);
+    }
+
+    /**
+     * 返回修改后的任务数量
+     * @param  Task    $task
+     * @return integer
+     */
+    private function changeForkTaskCount(Task $task, $add = true){
+        return $add ? $task->fork_task_count++ : $task->fork_task_count--;
+    }
+
+    /**
+     * 更新主任务的子任务活跃数量
+     * @author doowan
+     * @date   2020-11-21
+     * @param  Task       $task 主任务
+     * @param  Task       $fork 子任务
+     * @return boolean
+     */
+    private function updateForkActivityCount(Task $task, Task $fork){
+        if($this->isActived($fork)){
+            $task->fork_activity_count++;
+        }else{
+            $task->fork_activity_count--;
+        }
+        return $this->save($task) !== false;
     }
 
 

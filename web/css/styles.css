@@ -212,3 +212,10 @@ li{
     text-align:center; 
     font-weight:bold;
 }
+
+.tags{
+    border-radius: 5px;
+    border:1px solid #696969;
+    padding:3px;
+    margin:0px 2px;
+}

@@ -53,4 +53,8 @@ class TaskLifecycle extends \app\base\BaseAR{
         return $this->hasOne(Member::className(), ['id' => 'member_id']);
     }
 
+    public function getTask(){
+        return $this->hasOne(Task::class, ['id' => 'task_id']);
+    }
+
 }

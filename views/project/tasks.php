@@ -8,7 +8,7 @@ $parameters = $this->context->parameters;
     <div class='container-content'>
         <div class='container-form' >
             <form action="/project/tasks" method="get" class='float-left' id='searchForm'>
-                <input type='hidden' name='project_id' value='<?= $project->id?>'>
+                <input type='hidden' name='project_id' value='<?= $project->id?>' require>
                 <input type="text" name='name' placeholder='任务描述' class='input-100' value='<?= isset($parameters['name']) ? $parameters['name'] : ''?>'>
                 <input type="text" id='name' name='username' placeholder='用户名/手机' class='input-100' value='<?= isset($parameters['username']) ? $parameters['username'] : ''?>'>
                 <input type="text" name='start_time' placeholder='实施起始时间' class='datepicker' style='width:120px;' value='<?= isset($parameters['start_time']) ? $parameters['start_time'] : ''?>'>
@@ -55,6 +55,7 @@ $parameters = $this->context->parameters;
                 <input type='hidden' name='publisher_id' value="<?=isset($this->context->parameters['publisher_id']) ? $this->context->parameters['publisher_id'] : ''?>"/>
                 <input type='hidden' name='receive_user_id' value="<?=isset($this->context->parameters['receive_user_id']) ? $this->context->parameters['receive_user_id'] : ''?>"/>
                 <button type="submit" class='submit'>查询</button>
+                <button type="button" class='reset'>清空</button>
             </form>
 
             <div class='float-right'>
@@ -75,12 +76,12 @@ $parameters = $this->context->parameters;
                 <tr>
                     <td width='40'><label><input type='checkbox' class='checkbox contextCheckbox'/></label></td>
                     <td width="80">编号</td>
-                    <td width="*">任务名称</td>
+                    <td width="*">所在项目<br>任务名称</td>
                     <td width="50">优先级</td>
                     <td width="50">难度</td>
                     <td width="90">任务类型</td>
                     <td width="50">是否有效</td>
-                    <td width="80">活跃子任务</td>
+                    <td width="80">子任务<br>总数/活跃</td>
                     <td width="70">状态</td>
                     <td width="120">发布时间<br/>发布人</td>
                     <td width="120">接收时间<br/>实施人</td>
@@ -110,7 +111,7 @@ $parameters = $this->context->parameters;
                         <tr>
                             <td><label><input type='checkbox' class='checkbox independentCheckbox' data-status='<?= $task->status?>' value='<?=$task->id?>'/></label></td>
                             <td><a href='/project/tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>'><?=$task->id?></a></td>
-                            <td><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a><?=$mainTask?></td>
+                            <td><?= $task->project->name ?><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a><?=$mainTask?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>
                             <td><?= $task->category->name ?></td>
@@ -122,11 +123,7 @@ $parameters = $this->context->parameters;
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if($task['fork_activity_count'] > 0):?>
-                            <a href='/project/tasks?project_id=<?= $task->project_id?>&main_task_id=<?= $task->id ?>'><?= $task['fork_activity_count'] ?></a>
-                                <?php else:?>
-                            <?= $task['fork_activity_count'] ?>
-                                <?php endif;?>
+                                <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/project/tasks?main_task_id=<?= $task->id ?>' target='_blank' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/project/tasks?main_task_id=<?= $task->id ?>&task_active=0' target='_blank' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
                             </td>
                             <td><?= $status[$task['status']] ?></td>
                             <td><?= $array['publish_time'] ?><br/><a href="#" title='查看该成员发布的任务' form-search-name='publisher_id' form-search-id='<?=$publisher->id?>' class='shortcutSearch'><?= $publisher->real_name ?></a></td>
@@ -143,6 +140,10 @@ $parameters = $this->context->parameters;
                                 <br>
                                 <a href='/project/task-change-logs?task_id=<?=$task['id']?>' data-id='<?=$task['id']?>' class='taskChangeLog'>变更记录</a>
                                 <br>
+                                <?php if($task->fork_task_count > 0):?>
+                                    <a href='#' data-id='<?=$task['id']?>' class='directStat' title='所有子任务'>任务统计</a>
+                                    <br>
+                                <?php endif; ?>
                                 <a href='/project/edit-task?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>' data-id='<?=$task['id']?>' class='taskLifecycle' title='该项目的进程周期'>新建子任务</a>
                             </td>
                         </tr>
@@ -213,7 +214,71 @@ $parameters = $this->context->parameters;
         </div>
     </div>
 </script>
+
+<script type='text/javascript' src='/js/echarts.min.js'></script>
+<script type='text/html' id='statTpl'>
+    <div>
+        <div class='container-content'>
+            <button type="button" id='tableStat'>表格</button>
+            <button type="button" id='graphicsStat'>图形</button>
+        </div>
+        <div class='table-container'>
+            <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
+                <thead>
+                <tr>
+                    <td width="*">真实姓名</td>
+                    <td width="120">待实施</td>
+                    <td width="120">实施中</td>
+                    <td width='120'>已完成/终止</td>
+                </tr>
+                </thead>
+                <tbody>
+                {{if $data.list.length > 0 || undoTasksCount > 0}}
+                    {{each $data.list}}
+                        <tr>
+                            <td>{{$value['receiver']['real_name']}}</td>
+                            <td>{{$value['awaitTasksCount']}}</td>
+                            <td>{{$value['activedTasksCount']}}</td>
+                            <td>{{$value['terminateTasksCount']}}</td>
+                        </tr>
+                    {{/each}}
+                    <tr>
+                        <td>{{$data.total[0]}}</td>
+                        <td>{{$data.total[1]}}</td>
+                        <td>{{$data.total[2]}}</td>
+                        <td>{{$data.total[3]}}</td>
+                    </tr>
+                    {{if $data.undoTasksCount > 0}}
+                        <tr>
+                            <td style='background-color: #F8F8FF'>待分发任务</td>
+                            <td style='background-color: #F8F8FF' colspan="3">{{$data.undoTasksCount}}</td>
+                        </tr>
+                    {{/if}}
+                {{else}}
+                    <tr><td colspan="4" align="center">暂无数据</td></tr>
+                {{/if}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</script>
+<script type="text/html" id='statSearchTpl'>
+    <div id='chartPanel'>
+        <input type='text' id='receiver' class='input-200' style="width:150px;" placeholder="实施人">
+        <input type='hidden' name='reciver_id' id='reciverId' class='input-100' placeholder="实施人">&nbsp;
+        <input type="text" name="stat_start_time" placeholder="起始日期" id="statStartTime" style="width:100px;" title="按任务创建时间"/>&nbsp;
+        <input type="text" id="statEndTime" name="stat_end_time"  style="width:100px;"  placeholder="截止日期" title="按任务创建时间"/>&nbsp;
+        <button class="statSearch">查询</button>
+        [chart/]
+    </div>
+</script>
 <script type='text/javascript'>
+
+    $('.forkTaskTree').click(function(){
+        loadForkTaskTree($(this).attr('data-id'));
+        return false;
+    });
+
     $("button").button();
     $('#createTask').click(function(){
         window.location.href = '/project/edit-task?project_id='+$(this).attr('data-project-id');
@@ -348,7 +413,25 @@ $parameters = $this->context->parameters;
             }
         });
         return false;
-    })
+    });
+
+    $('.directStat').click(function(){
+        statTask('/task/stat', $(this).attr('data-id'), 'graphics');
+        return false;
+    });
+
+    $('.reset').click(function(){
+        $('form').find('input').each(function(){
+            var that = $(this);
+            if(that[0].hasAttribute('require')){
+                return;
+            }
+            that.val('');
+        });
+        $("select[name='status']" ).val('').selectmenu('refresh');
+        $("select[name='type']" ).val('').selectmenu('refresh');
+        $("select[name='priority']" ).val('').selectmenu('refresh');
+    });
 
     $("#name").autocomplete({
         delay: 500,

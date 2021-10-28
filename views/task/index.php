@@ -7,7 +7,7 @@ $parameters = $this->context->parameters;
 <div class='block-container'>
     <div class='container-content'>
         <div class='container-form' >
-            <form action="/my/tasks" method="get" class='float-left'>
+            <form action="/task/index" method="get" class='float-left' id='searchForm'>
                 <input type="text" name='name' placeholder='任务描述' class='input-100' value='<?= isset($parameters['name']) ? $parameters['name'] : ''?>'>
                 <input type="text" name='start_time' id='startTime' placeholder='接收起始时间' class='input-100' value='<?= isset($parameters['start_time']) ? $parameters['start_time'] : ''?>'>
                 <input type="text" name='end_time' id='endTime' placeholder='接收截至时间' class='input-100' value='<?= isset($parameters['end_time']) ? $parameters['end_time'] : ''?>'>
@@ -24,6 +24,19 @@ $parameters = $this->context->parameters;
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
+                <select name='type'>
+                    <option value=''>--类型--</option>
+                    <?php foreach($types as $category):?>
+                        <?php
+                            $selected = '';
+                            $parameters = $this->context->parameters;
+                            if(isset($parameters['type']) && $parameters['type'] == $category->id){
+                                $selected = 'selected=true';
+                            }
+                        ?>
+                        <?= "<option value='{$category->id}'{$selected}>{$category->name}</option>" ?>
+                    <?php endforeach; ?>
+                </select>
                 <select name='priority'>
                     <option value=''>--优先级--</option>
                     <?php foreach($priorities as $key=>$name):?>
@@ -37,12 +50,15 @@ $parameters = $this->context->parameters;
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
+                <input type='hidden' name='publisher_id' value="<?=isset($this->context->parameters['publisher_id']) ? $this->context->parameters['publisher_id'] : ''?>"/>
+                <input type='hidden' name='receive_user_id' value="<?=isset($this->context->parameters['receive_user_id']) ? $this->context->parameters['receive_user_id'] : ''?>"/>
+                <input type='hidden' name='project_id' value="<?=isset($this->context->parameters['project_id']) ? $this->context->parameters['project_id'] : ''?>"/>
                 <button type="submit" class='submit'>查询</button>
+                <button type="button" class='reset'>清空</button>
             </form>
 
             <div class='float-right'>
-                <button type="button" id='createTask'>创建</button>
-                <button type="button" id='myPublishedTasks'>我发布的</button>
+                <button type="button" id='createTask'>创建新任务</button>
             </div>
 
             <div class='float-clear'></div>
@@ -55,17 +71,18 @@ $parameters = $this->context->parameters;
             <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
                 <thead>
                 <tr>
-                    <td width="60">编号</td>
-                    <td width="*">项目名称<br>任务名称</td>
+                    <td width="80">编号</td>
+                    <td width="*">任务名称</td>
                     <td width="50">优先级</td>
                     <td width="50">难度</td>
                     <td width="90">任务类型</td>
+                    <td width="50">是否有效</td>
                     <td width="80">子任务<br>总数/活跃</td>
-                    <td width="80">状态</td>
-                    <td width="100">发布人</td>
-                    <td width="120">发布时间<br>接收时间<br>预期完成时间<br>实际完成时间</td>
-                    <td width="120">最后更新时间</td>
-                    <td width='150'>操作</td>
+                    <td width="70">状态</td>
+                    <td width="120">发布时间<br/>发布人</td>
+                    <td width="120">接收时间<br/>实施人</td>
+                    <td width="120">预期完成时间<br/>实际完成时间</td>
+                    <td width='120'>操作</td>
                 </tr>
                 </thead>
                 <tbody>
@@ -73,53 +90,44 @@ $parameters = $this->context->parameters;
                     <?php foreach($tasks->getModels() as $task):?>
                         <?php 
                             $publisher = $task->publisher;
-                            if($publisher->id == $this->context->member->id){
+                            if($this->context->member->id == $publisher->id){
                                 $publisher->real_name = '我自己';
                             }
                             $receiver = '暂无';
                             if($task->receive_user_id){
-                                $receiver = $task->receiver->username;
+                                $receiver = "<a href='#' title='查看该成员实施的任务'  data-project-id='{$task->project_id}' form-search-id='{$task->receiver->id}' class='shortcutSearch' form-search-name='receive_user_id'>{$task->receiver->real_name}</a>";
                             }
                             $array = $task->toArray();
+
                             $mainTask = '';
                             if($task->mainTask){
-                                $mainTask = "&nbsp;[<a href='/project/tasks?project_id={$task->mainTask->project_id}&task_id={$task->mainTask->id}' target='_blank' title='主任务：{$task->mainTask->name}'>{$task->task_id}</a>]";
+                                $mainTask = "&nbsp;[<a href='/project/tasks?project_id={$task->mainTask->project_id}&task_id={$task->mainTask->id}' title='主任务：{$task->mainTask->name}'>{$task->task_id}</a>]";
                             }
                         ?>
                         <tr>
-                            <td><?=$task->id?></td>
-                            <td><a href='/my/tasks?project_id=<?=$task->project_id?>' title='查看该项目任务'><span class='projectName'><?=$task->project->name?></span></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a>&nbsp;<?= $mainTask ?></td>
+                            <td><a href='/project/tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>'><?=$task->id?></a></td>
+                            <td><a href='#' form-search-id='<?=$task->project_id?>' class='shortcutSearch' form-search-name='project_id' title='查看该项目任务'><?=$task->project->name?></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a><?=$mainTask?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>
                             <td><?= $task->category->name ?></td>
                             <td>
+                                <?php if($task->is_valid): ?>
+                                    <a href='/project/terminate-task' data-id='<?=$task->id?>' title='终止任务' class='terminateTask'>是</a>
+                                <?php else:?>
+                                    <a href='/project/restart-task' data-id='<?=$task->id?>' title='继续任务' class='restartTask'>否</a>
+                                <?php endif; ?>
+                            </td>
+                            <td>
                                 <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/project/tasks?main_task_id=<?= $task->id ?>' target='_blank' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/project/tasks?main_task_id=<?= $task->id ?>&task_active=0' target='_blank' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
                             </td>
                             <td><?= $status[$task['status']] ?></td>
-                            <td><?= $publisher->real_name ?></td>
-                            <td>
-                            <?= $array['publish_time'] ?><br>
-                            <?= $array['receive_time'] ?><br>
-                            <?= $array['expected_finish_time'] ?><br>
-                            <?= $array['real_finish_time'] ?>
-                            </td>
-                            <td><?= $array['update_time'] ?></td>
+                            <td><?= $array['publish_time'] ?><br/><a href="#" title='查看该成员发布的任务' form-search-name='publisher_id' form-search-id='<?=$publisher->id?>' class='shortcutSearch'><?= $publisher->real_name ?></a></td>
+                            <td><?= $array['receive_time'] ?><br><?= $receiver ?></td>
+                            <td><?= $array['expected_finish_time'] ?><br><?= $array['real_finish_time'] ?></td>
                             <td>
                                 <a href='/project/edit-task?project_id=<?=$task['project_id']?>' title='为当前项目新建任务'>新建任务</a>
                                 <br>
-                                <a href='/project/edit-task?project_id=<?=$task['project_id']?>&task_id=<?= $task['id']?>' title='为当前任务建立子任务'>新建子任务</a><br>
-                                <?php if($this->context->member->id === $task->publisher->id && $task->status != Task::COMPLETE_STATUS):?>
-                                    <!-- 编辑修改自己创建的任务 -->
-                                    <a href="/project/edit-task?id=<?=$task['id']?>&project_id=<?=$task['project_id']?>">修改</a>
-                                    <a href='/project/delete-task' data-id='<?=$task['id']?>' class='delete'>删除</a>
-                                <?php endif;?>
-                                <?php if($task->status == Task::WAITTING_ADVANCE_STATUS):?>
-                                    <a href='/my/processing-task' data-id='<?=$task['id']?>' class='processing'>实施</a>
-                                    <a href='/my/transfer?task_id=<?=$task['id']?>'  data-id='<?=$task['id']?>'  class='transfer'>转交</a>
-                                <?php elseif($task->status == Task::ADVANCE_STATUS):?>
-                                    <a href='/my/transfer?task_id=<?=$task['id']?>'  data-id='<?=$task['id']?>'  class='transfer'>转交</a>
-                                    <a href='/my/code-fragment?task_id=<?=$task['id']?>' data-id='<?=$task['id']?>' class='terminate'>完成</a>
-                                <?php endif;?>
+                                <a href='/project/edit-task?project_id=<?=$task['project_id']?>&task_id=<?= $task['id']?>' title='为当前任务建立子任务'>新建子任务</a>
                             </td>
                         </tr>
                     <?php endforeach;?>
@@ -244,6 +252,18 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
             }
         });
         return false;
+    });
+    $('.reset').click(function(){
+        $('form').find('input').each(function(){
+            var that = $(this);
+            that.val('');
+        });
+        $("select[name='status']" ).val('').selectmenu('refresh');
+        $("select[name='priority']" ).val('').selectmenu('refresh');
+    });
+
+    $('.shortcutSearch').click(function(){
+        functions.shortcutSearch.call(this, $('#searchForm'));
     });
 
     $('.processing').click(function(){

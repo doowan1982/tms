@@ -129,6 +129,9 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
     <div id='searchTasks'>
         <div class='container-content'>
             <form action='/project/tasks-json' method='get'>
+            <select name='projectId'>
+                [project/]
+            </select>
             <input type="text" name='name' value="{{$data.name}}" placeholder='任务名称' class='input-100'>
             <button type="button" id='searchTasksButton'>查询</button>
             </form>
@@ -166,7 +169,7 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
         {{/if}}
         </tbody>
     </table>
-</script>>
+</script>
 
 <script type="text/javascript" src="/js/kindeditor/kindeditor-all-min.js"></script>
 <script type='text/javascript'>
@@ -268,45 +271,60 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
     });
 
     //加载搜索的对话框
-    function loadTaskDialogContent(id, name){
+    function loadTaskDialogContent(projectId, name){
         var that = $('#changeParentTask');
         name = name || '';
         var taskId = $('input[name=id]').val();
-        var url = '/project/get-main-task-candidates?project_id='+id+'&task_id='+taskId;
+        var mainTaskId = $('input[name=task_id]').val();
+        var url = '/project/get-main-task-candidates?project_id='+projectId+'&task_id='+taskId;
         if(name){
             url += "&name="+name;
         }
+        // Dialog.getDialogContainer('dialog').dialog('close');
         request(url, function(rep){
-            for(var i in rep.data){
-                var data = rep.data[i];
+            var id = $('input[name=id]').val();
+            for(var i in rep.data['tasks']){
+                var data = rep.data['tasks'][i];
                 data.receiver = data.receiver || {
                     'real_name' : '暂无',
                 }
+                if(data.id == id || data.id == mainTaskId){
+                    rep.data['tasks'][i]['unselected'] = true;
+                }
             }
+            var projectHtml = []; 
+            rep.data['projects'].forEach(function(v){
+                if(v.id == projectId){
+                    projectHtml.push('<option value="'+ v.id +'" selected>'+ v.name +'</option>');
+                }else{
+                    projectHtml.push('<option value="'+ v.id +'">'+ v.name +'</option>');
+                }
+            });
             var html = template('taskListTpl', {
-                    'list' : rep.data
+                    'list' : rep.data['tasks']
                 });
-            var searchTasks = $('#searchTasks');
-            if(searchTasks.length == 0){
-                var searchBlock = template('tasksTpl', {
-                    'name' : name
-                });
-                html = searchBlock.replace('[data/]', html);
-            }else{
-                searchTasks.find('.taskList').html(html);
-                return;              
-            }
-
+            var searchBlock = template('tasksTpl', {
+                'name' : name
+            });
+            html = searchBlock.replace('[data/]', html).replace('[project/]', projectHtml.join());
             Dialog.content(html, {
-                title: '选择主任务【仅限于所在项目】',
-                width : '70%'
+                title: '选择主任务',
+                width : '70%',
+                open : function(lay){
+                    $(this).find('button').button()
+                    $(this).find('select').selectmenu({
+                        'width' : 150,
+                        'height' : 40
+                    });
+                }
             });
         });
     }
 
     $('body').on('click', '#searchTasksButton', function(){
-        var id = $('input[name=project_id]').val();
+        var id = $('#searchTasks').find('select[name=projectId]').val();
         var name = $('#searchTasks').find('input[name=name]').val();
+        Dialog.getDialogContainer('dialog').dialog('close');
         loadTaskDialogContent(id, name);
     })
 
@@ -332,7 +350,33 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
     });
 
     $('form').submit(function(){
-        $('#description').text(editor.html());
+        var taskName = $('input[name=name]');
+        var id = $('input[name=id]');
+        if(!taskName.val()){
+            Dialog.message('任务名称不能为空');
+            return false;
+        }
+        var priority = $('select[name=priority]');
+        if(!priority.val()){
+            Dialog.message('任务优先级不能为空');
+            return false;
+        }
+        var type = $('select[name=type]');
+        if(!type.val()){
+            Dialog.message('任务类型不能为空');
+            return false;
+        }
+        var taskId = $('input[name=task_id]');
+        if(taskId.val() == id.val()){
+            Dialog.message('主任务设置重名');
+            return false;
+        }
+        var html = editor.html();
+        if(!html){
+            Dialog.message('请填写任务内容');
+            return false;
+        }
+        $('#description').text(html);
         createCsrfBeforeSubmit($(this));
         return true;
     });

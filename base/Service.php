@@ -79,7 +79,7 @@ abstract class Service extends \yii\base\Component{
             return;
         }
         $value = $conditons[$name];
-        if(!$value){
+        if($value === ''){
             return;
         }
         if($logic == self::EQ){

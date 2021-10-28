@@ -181,7 +181,11 @@ include_once(Yii::getAlias('@view/common/header.php'));
                     }
                 }
                 task.priority = responseData.priorities[task.priority];
-                task.name = task.name+"（<span class='red'><span title='类型'>" + task.type + "</span>&nbsp;|&nbsp;<span title='优先级'>" + task.priority + "</span>&nbsp;|&nbsp;<span title='状态'>" + status+"</span></span>）";
+                task.name = "<a href='/project/tasks?project_id="+task.project_id+"&task_id="+task.id+"' target='_blank' title='点击查看详情'>"+task.name+"</a>（<span class='red'><span title='类型'>" + task.type + "</span>&nbsp;|&nbsp;<span title='优先级'>" + task.priority + "</span>&nbsp;|&nbsp;<span title='状态'>" + status+"</span></span>）【"+task.publisher+"发布于<span class='blue'>"+ task.publish_time +"</span>";
+                if(task.receive_user_id > 0 && task.status == 40){
+                    task.name += '&nbsp;&nbsp;'+task.receiver + "完成于<span class='blue'>" + task.real_finish_time + '</span>';
+                }
+                task.name += '】';
                 if(typeof(total[status]) == 'undefined'){
                     total[status] = 0;
                 }

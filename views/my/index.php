@@ -12,7 +12,8 @@ include_once(Yii::getAlias('@view/common/header.php'));
         <div id="tabs">
           <ul>
             <li><a href="#fragment-1"><span>任务进度</span></a></li>
-            <li><a href="#fragment-2"><span>任务统计</span></a></li>
+            <li><a href="#fragment-2"><span>最近参与</span></a></li>
+            <li><a href="#fragment-3"><span>任务统计</span></a></li>
           </ul>
           <div id="fragment-1">
               <div class='table-container'>
@@ -61,6 +62,34 @@ include_once(Yii::getAlias('@view/common/header.php'));
             </div>
           </div>
           <div id="fragment-2">
+              <div class='table-container'>
+                <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
+                    <thead>
+                    <tr>
+                        <td width="30%">任务名称</td>
+                        <td width="*">动态</td>
+                        <td width="150">时间</td>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php if(count($recentTouchTasks) > 0):?>
+                        <?php foreach($recentTouchTasks as $touchTask):?>
+                            <tr>
+                                <td><a href='/project/tasks?project_id=<?= $touchTask->task->project_id ?>&task_id=<?=$touchTask->task_id?>' title='查看任务'><?= $touchTask->task->name ?></a></td>
+                                <td><?= preg_replace('/<a.*[^>]>/', '', $touchTask->message) ?></td>
+                                <td>
+                                    <?= date('Y-m-d H:i:s', $touchTask->create_time) ?>
+                                </td>
+                            </tr>
+                        <?php endforeach;?>
+                    <?php else:?>
+                        <tr><td colspan="6" align="center">暂无任务</td></tr>
+                    <?php endif;?>
+                    </tbody>
+                </table>
+            </div>
+          </div>
+          <div id="fragment-3">
             <div class='container-form' >
                 <form action="/my/task-stat" id='statForm' method="get" class='float-left'>
                     <input type="text" name='start_time' id='startTime' placeholder='接收起始时间' class='input-100'>

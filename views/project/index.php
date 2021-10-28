@@ -31,6 +31,7 @@ include_once(Yii::getAlias('@view/common/header.php'));
 
             <div class='float-right'>
                 <button type="button" id='createProject'>新增项目</button>
+                <button type="button" id='allTasks'>所有任务列表</button>
             </div>
             <div class='float-clear'></div>
 
@@ -147,231 +148,12 @@ include_once(Yii::getAlias('@view/common/header.php'));
     </div>
 </script>
 <script type='text/javascript'>
-    function graphicsStat(myChart, list, undoCount){
-        var status = ['待分发', '待实施', '实施中', '已完成/终止'];
-        var members = [];
-        var data = [];
-        var total = {
-            receiver: {
-                real_name: '全部'
-            },
-            awaitReceiveTasksCount:0,
-            awaitTasksCount:0,
-            activedTasksCount:0,
-            terminateTasksCount:0
-        }
-        for(var i in list){
-            // total['awaitReceiveTasksCount'] += list[i]['awaitReceiveTasksCount'];
-            total['awaitTasksCount'] += list[i]['awaitTasksCount'];
-            total['activedTasksCount'] += list[i]['activedTasksCount'];
-            total['terminateTasksCount'] += list[i]['terminateTasksCount'];
-            list[i]['total'] = list[i]['awaitTasksCount'] +
-                          list[i]['activedTasksCount'] +
-                          list[i]['terminateTasksCount'];
-        }
-        //未接受任务无实施人所以仅在整体中体现
-        total['awaitReceiveTasksCount'] = undoCount;
-        total['total'] = total['awaitTasksCount'] +
-                          total['activedTasksCount'] +
-                          total['terminateTasksCount'] +
-                          total['awaitReceiveTasksCount'];
-        list.push(total);
-        list.sort(function(a, b){
-            return a['total'] - b['total'];
-        });
-        for(var i in status){
-            data.push({
-                name: status[i],
-                type: 'bar',
-                stack: '数量',
-                label: {
-                    show: true,
-                    position: 'insideRight',
-                    formatter: function(params){
-                        if(params.value > 0){
-                            return params.value;
-                        }
-                        return '';
-                    }
-                },
-                data: []
-            });
-        }
-
-        for(var i in list){
-            members.push(list[i]['receiver']['real_name']);
-            for(var j in data){
-                j = parseInt(j);
-                //仅整体时才进行统计
-                if(j === 0){
-                    data[j]['data'].push(list[i]['awaitReceiveTasksCount']);
-                }else if(j == 1){
-                    data[j]['data'].push(list[i]['awaitTasksCount']);
-                }else if(j == 2){
-                    data[j]['data'].push(list[i]['activedTasksCount']);
-                }else if(j == 3){
-                    data[j]['data'].push(list[i]['terminateTasksCount']);
-                }
-            }
-        }
-        var option = {
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: {            // 坐标轴指示器，坐标轴触发有效
-                    type: 'shadow'        // 默认为直线，可选为：'line' | 'shadow'
-                },
-                formatter : function(params){
-                    var sum = 0;
-                    for(var i in params){
-                        var param = params[i];
-                        if(typeof(param.value) === 'undefined'){
-                            params[i].value = 0;
-                        }
-                        sum += param.value;
-                    }
-                    var html = "";
-                    for(var i in params){
-                        var val = parseInt(params[i].value);
-                        if(val < 1){
-                            continue;
-                        }
-                        html += params[i].marker + params[i].seriesName + ' ' + val + '个 [&nbsp;' + (Math.ceil(Math.round(val / sum * 10000)) / 100) + '%&nbsp;]<br>';                            
-                    }
-                    return html;
-                }
-            },
-            legend: {
-                data: status
-            },
-            grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '3%',
-                containLabel: true
-            },
-            xAxis: {
-                type: 'value'
-            },
-            yAxis: {
-                type: 'category',
-                data: members,
-                nameTextStyle: {
-                    padding: 2
-                },
-                axisTick : {
-                    show : false,
-                    interval : 2
-                }
-            },
-            series: data
-        };
-
-        myChart.setOption(option);
-    }
-
-    function statTask(id, statType, params){
-        statType = statType || 'graphics';
-        params = params || {};
-        params['id'] = id;
-        var str = [];
-        for(var i in params){
-            //仅作为函数参数
-            if(i == 'receiver'){
-                continue;
-            }
-            str.push(i+"="+params[i]);
-        }
-        request('/project/stat?'+str.join('&'), function(rep){
-            var list = rep.data.list;
-            if(statType != 'graphics'){
-                var total = ['项目整体进度(已分发)', 0, 0, 0];
-                for(var i in list){
-                    total[1] += list[i]['awaitReceiveTasksCount'];
-                    total[2] += list[i]['awaitTasksCount'];
-                    total[3] += list[i]['activedTasksCount'];
-                    total[4] += list[i]['terminateTasksCount'];
-                }
-                var html = $(template('statTpl', {
-                    'list' : list,
-                    'total' : total,
-                    'undoTasksCount' : rep.data.undo_count
-                }));
-                html.find('button').button();
-                Dialog.content(html, {
-                    title: '任务统计'
-                });
-            }else{
-                html = template('statSearchTpl', {}).replace('[chart/]', createDialogWarpperHtml('chart', '', 0.8, 0.7));
-                var size = Dialog.getSize(0.9, 0.95);
-                Dialog.content($(html), {
-                    title: '任务统计',
-                    width: '90%',
-                    height: size['height'],
-                    create : function(event, ui){
-                        var myChart = echarts.init(document.getElementById('chart'));
-                        graphicsStat(myChart, list, rep.data.undo_count);
-                        var target = $(event.target);
-
-                        //实施人
-                        var receiver = target.find('#receiver').val(params['receiver'] || '');
-                        request('/member/list', function(rep){
-                            var data = rep.data;
-                            for(var i in data){
-                                data[i] = data[i].real_name + ' ' + data[i].username + '[' + data[i]['id'] + ']';
-                            }
-                            receiver.autocomplete({
-                                source : data, 
-                                select : function(event, ui){
-                                    //匹配id
-                                    var id = ui.item.label.replace(/.*\[(\d+)\]$/, '$1');
-                                    target.find('#reciverId').val(id);
-                                }
-                            });
-                            receiver.focus();
-                        });
-                        var receiverId = target.find('#reciverId');
-                        receiverId.val(params['receive_user_id'] || '');
-
-                        //起始时间
-                        var startTime = target.find('#statStartTime');
-                        startTime.datepicker({
-                            altField: "#statStartTime",
-                            altFormat: "yy-mm-dd"
-                        });
-                        startTime.val(params['start_time'] || '');
-                        //截止时间
-                        var endTime = target.find('#statEndTime');
-                        endTime.datepicker({
-                            altField: "#statEndTime",
-                            altFormat: "yy-mm-dd"
-                        });
-                        endTime.val(params['end_time'] || '');
-
-                        target.find('.statSearch').click(function(){
-                            target.dialog('close');
-                            statTask(id, statType, {
-                                'start_time' : startTime.val(),
-                                'end_time' : endTime.val(),
-                                'receive_user_id' : receiverId.val(),
-                                'receiver' : receiver.val()
-                            });
-                        }).button().focus();
-
-                    },
-                    close : function(event, ui){
-                        $('#chartPanel').remove();
-                    }
-                });
-            }
-        });
-    }
-
     $("select[name='status']" ).selectmenu({
         'width' : 150,
         'height' : 20
     });
     $('.stat').click(function(){
-        statTask($(this).attr('data-id'), 'graphics');
+        statTask('/project/stat', $(this).attr('data-id'), 'graphics');
         return false;
     });
 
@@ -410,6 +192,9 @@ include_once(Yii::getAlias('@view/common/header.php'));
     });
     $('#createProject').click(function(){
         window.location.href = '/project/create';
+    });
+    $('#allTasks').click(function(){
+        window.location.href = '/task';
     });
 </script>
 <?php 

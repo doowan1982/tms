@@ -29,6 +29,30 @@
             $(this).find('td').css('background-color', '');
         });
 
+        
+
+        evtListener.addEvt(new Evt('closeDialog', function(event){
+            var _target = event.target;
+            let nonEffectTag = ['input', 'button', 'a', '#ui-datepicker-div', '.ui-dialog']; //该标签的不触发事件
+            while(typeof(_target) != 'undefined'){
+                if(evtListener.isIncludeElement(nonEffectTag, _target)){
+                    break;
+                }
+                if(_target.tagName.toLocaleLowerCase() == 'body'){
+                    let dialog = Dialog.getDialogContainer('dialog');
+                    if(dialog.html() != ''){
+                        dialog.dialog('close');
+                    }
+                    break;
+                }
+                _target = _target.parentNode;
+            }
+        }))
+
+        $(document).click(function(event){
+            evtListener.trigger(event);
+        });
+
         $(window).resize(function(){
             setContentBlockHeight();
         });

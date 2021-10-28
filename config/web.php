@@ -27,15 +27,15 @@ $config = [
              'class' => 'yii\swiftmailer\Mailer',
              'transport' => [
                  'class' => 'Swift_SmtpTransport',
-                 'host' => 'host',
-                 'username' => 'username',
-                 'password' => 'password', 
+                 'host' => 'smtp.exmail.qq.com',
+                 'username' => 'no-reply@tesoon.com',//发送者邮箱地址
+                 'password' => 'Tsysps323i', //SMTP密码
                  'port' => '587',
                  'encryption' => 'tls',
              ],
              'messageConfig'=>[
                  'charset'=>'UTF-8',
-                 'from'=>[]
+                 'from'=>['no-reply@tesoon.com'=>'天星教育']
              ],
          ],
         'log' => [

@@ -47,12 +47,16 @@ class Projects extends \app\base\Service{
 
     /**
      * 返回$taskId可以设置的主任务列表
-     * @param  Project $project
-     * @param  Task $task 
-     * @return [type]         [description]
+     * @param Project $project
+     * @param Task $task 
+     * @param string $name
+     * @return return array
      */
     public function getMainTaskCandidates(Project $project, Task $task, $name=''){
-        $tasks = \Yii::$app->get('taskService')->getTasks($task);
+        $tasks = [];
+        if($task->id > 0){
+            $tasks = \Yii::$app->get('taskService')->getTasks($task);
+        }
         $query = Task::find()
                     ->alias('t')
                     ->joinWith(['publisher p'])
@@ -96,29 +100,6 @@ class Projects extends \app\base\Service{
     }
 
     /**
-     * 返回指定用户的项目信息
-     * @param AbstractMember $member
-     * @return \yii\data\DataProviderInterface
-     */
-    public function getProjectsByMember(AbstractMember $member){
-        $condition = [
-            'is_delete' => Project::NON_DELETE,
-        ];
-        $query = Project::find()->joinWith(
-                [
-                    'tasks' => function($query) use ($member){
-                        $query->where(['receive_user_id' => $member->id]);
-                    }
-                ]
-            )
-            ->orderBy(['update_time' => SORT_DESC]);
-        if(isset($this->parameters['name']) && empty($this->parameters['name'])){
-            $query->andWhere(['like', 'name', $this->parameters['name']]);
-        }
-        return $this->getDataProvider($query, 20);
-    }
-
-    /**
      * 启动项目
      * @return boolean 如果成功返回true
      */
@@ -128,6 +109,15 @@ class Projects extends \app\base\Service{
             return $project->update() !== false;
         }
         return true;
+    }
+
+    /**
+     * 返回指定条件的任务列表
+     * @param array $conditions
+     */
+    public function getTasks($conditions){
+        $conditions['t.is_valid'] = Task::VALID;
+        return $this->tasks($conditions);
     }
 
     /**
@@ -144,7 +134,7 @@ class Projects extends \app\base\Service{
 
     /**
      * 返回指定用户的任务信息
-     * @param AbstractMember $member
+     * @param Member $member
      * @return \yii\data\DataProviderInterface
      */
     public function getTasksByMember(Member $member, $conditions=[]){
@@ -240,22 +230,7 @@ class Projects extends \app\base\Service{
      * @return array
      */
     public function statistics(Project $project, $params=[]){
-        $query = Task::find()->alias('t')
-                        ->joinWith('receiver')
-                        ->where([
-                            'project_id' => $project->id,
-                            'is_delete' => Task::NON_DELETE,
-                        ]);
-
-        $this->conditionFilter($query, $params, ['timestamp_range', 't.create_time', self::RANGE]);
-        $this->conditionFilter($query, $params, ['receive_user_id', 't.receive_user_id']);
-
-        $tasks = $query->orderBy(['receive_user_id' => SORT_ASC, 't.status' => SORT_ASC])
-            ->all();
-        return [
-            'list' => TaskStatistics::stat($tasks),
-            'undo_count' => TaskStatistics::$undoTasksCount,
-        ];
+        return \Yii::$app->get('taskService')->statistics($project, $params);
     }
 
     /**
@@ -292,31 +267,21 @@ class Projects extends \app\base\Service{
         //查询任务
         $tasks = \Yii::$app->get('taskService')->getTaskWithDetails($conditions);
         $data = [];
+
+        $projects = [];
         foreach($tasks as $task){
-            if(!isset($data[$task->project_id])){
-                $data[$task->project_id] = [];
+            if(!isset($projects[$task->project_id])){
+                $projects[$task->project_id] = [];
+                $projects[$task->project_id]['id'] = $task->project_id;
+                $projects[$task->project_id]['name'] = $task->project->name;
             }
             $task->description = ''; //详情数据不返回
-            $data[$task->project_id][] = $task;
+            $array = $task->toArray();
+            $array['publisher'] = $task->publisher->real_name;
+            $array['receiver'] = $task->receiver != null ? $task->receiver->real_name : '';
+            $projects[$task->project_id]['tasks'][] = $array;
         }
-
-        //查询出对应的项目
-        $projectId = array_keys($data);
-        if(count($projectId) == 0){
-            return [];
-        }
-
-        $result = [];
-        $projects = $this->getProjects(['id' => $projectId]);
-        foreach($projects as $project){
-            $result[] = [
-                'id' => $project->id,
-                'name' => $project->name,
-                'tasks' => $data[$project->id],
-            ];
-            unset($data[$project->id]);
-        }
-        return $result;
+        return array_values($projects);
     }
 
     private function tasks($where){

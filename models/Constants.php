@@ -15,6 +15,7 @@ class Constants{
     const MEMBER_EDIT = '/member/edit';
     const RESET_PASSWORD = '/site/reset-password';
     const LOGIN = '/site/login';
+    const TASKS = '/task/index';
 
     /**
      * 消息发送类型

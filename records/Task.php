@@ -34,6 +34,9 @@ class Task extends \app\base\BaseAR{
     const MID_PRIORITY = 2;
     const LOW_PRIORITY = 3;
 
+    //子任务建立最大级数，包含当前级
+    const MAX_COUNT_FORK_TASK = 10;
+
     public static function getPriorities(){
         return [
             self::HIGH_PRIORITY => '高',
@@ -120,6 +123,7 @@ class Task extends \app\base\BaseAR{
             'expected_finish_time' => '期望完成时间',
             'real_finish_time' => '实际完成时间',
             'fork_activity_count' => '活跃子任务总数',
+            'fork_task_count' => '子任务总数'
         ];
     }
 
@@ -131,7 +135,7 @@ class Task extends \app\base\BaseAR{
             [['project_id', 'name','description', 'priority', 'publish_time', 'type'], 'required'],
             [['name'], 'string','max'=>80],
             [['description'], 'string'],
-            [['project_id', 'task_id', 'priority', 'status', 'type', 'is_valid', 'publisher_id', 'publish_time', 'receive_user_id', 'receive_time', 'fork_activity_count',], 'integer'], 
+            [['project_id', 'task_id', 'priority', 'status', 'type', 'is_valid', 'publisher_id', 'publish_time', 'receive_user_id', 'receive_time', 'fork_activity_count', 'fork_task_count', 'create_time', 'update_time'], 'integer'], 
             [['difficulty', 'expected_finish_time'], 'number'],
             [['status'], 'in', 'range' => array_keys(self::getTaskStatus())],
             ['difficulty', 'default', 'value' => 0],

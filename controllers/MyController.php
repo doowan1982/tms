@@ -18,6 +18,7 @@ class MyController extends BaseController{
                 'progresses' => Yii::$app->get('taskService')->getTaskProgress([
                     'receive_user_id' => $this->getMember()->id,
                 ]),
+                'recentTouchTasks' =>  Yii::$app->get('taskService')->getRecentTouchTasksByMember($this->getMember()),
             ]);
     }
 

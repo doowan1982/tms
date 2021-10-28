@@ -37,6 +37,7 @@ $parameters = $this->context->parameters;
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
+                <input type='hidden' name='project_id' value="<?=isset($this->context->parameters['project_id']) ? $this->context->parameters['project_id'] : ''?>"/>
                 <button type="submit" class='submit'>查询</button>
             </form>
 
@@ -83,7 +84,7 @@ $parameters = $this->context->parameters;
                         <tr>
                             <td><label><input type='checkbox' class='checkbox independentCheckbox' data-status='<?= $task->status?>' value='<?=$task->id?>'/></label></td>
                             <td><a href='/project/pending-tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>'><?=$task->id?></td>
-                            <td><a href='/project/pending-tasks?project_id=<?=$task->project_id?>' title='查看该项目任务'><?=$task->project->name?></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></td>
+                            <td><a href='#' form-search-id='<?=$task->project_id?>' class='shortcutSearch' form-search-name='project_id' title='查看该项目任务'><?=$task->project->name?></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>
                             <td><?= $task->category->name ?></td>
@@ -115,15 +116,6 @@ $parameters = $this->context->parameters;
     $("select" ).selectmenu({
         'width' : 110,
         'height' : 20
-    });
-
-    $('.shortcutSearch').click(function(){
-        var that = $(this);
-        var form = $('#searchForm');
-        var name = that.attr('form-search-name');
-        var value = that.attr('form-search-id');
-        form.append("<input type='hidden' name='"+name+"' value='"+value+"'>");
-        form.submit();
     });
 
     var checkboxGroup = new CheckboxGroup();
@@ -158,6 +150,9 @@ $parameters = $this->context->parameters;
         return false;
     });
 
+    $('.shortcutSearch').click(function(){
+        functions.shortcutSearch.call(this, $('#searchForm'));
+    });
 
     $('.receiveTask').click(function(){
         var that = $(this);

@@ -52,6 +52,137 @@ $count = "<font color='red' id='unreadCount' style='font-weight:bold;'>&nbsp;0&n
     </div>
 </script>
 <script type="text/javascript">
+    //document点击后所触发的事件
+    //{ autoClosedDialog : function(event){}}
+    function Evt(id, fn, type){
+        this.id = id;
+        //类型，如果为once，则为页面生命周期时（未刷新页面）仅触发一次
+        this.type = type || 'always';
+
+        //事件冒泡中，存在该对象时则不处罚
+        this.excludeObjects = [];
+        
+        //触发操作
+        this.dispatch = function(event){
+            if(this.type == 'once'){
+                isDispatched = true;
+            }
+            fn(event);
+        };
+        
+        let isDispatched = false;
+        this.isDispatched = function(){
+            return isDispatched;
+        }
+
+    }
+
+    function DocumentClickEventListener(){
+        let evts = [];
+
+        //添加evt到队尾
+        this.addEvt = function(evt){
+            for(let i in evts){
+                if(evts[i].id === evt.id){
+                    evts[i] = evt;
+                    return;
+                }
+            }
+            evts.push(evt);
+        }
+
+        //添加到指定evt.id之前执行
+        this.addEvtBeforeId = function(evt, id){
+            for(let i in evts){
+                if(evts[i].id === id){
+                    evts.splice(i, 0, evt);
+                    break;
+                }
+            }
+        }
+
+        //添加到指定evt.id之后执行
+        this.addEvtAfterId = function(evt, id){
+            for(let i in evts){
+                if(evts[i].id === id){
+                    evts.splice(i+1, 0, evt);
+                    break;
+                }
+            }
+        }
+
+        //触发
+        this.trigger = function(event){
+            evts.forEach(evt => {
+                if(evt.isDispatched()){
+                    return;
+                }
+                evt.dispatch(event);
+            });
+        }
+
+        this.getEventIds = function(){
+            let names = [];
+            evts.forEach(evt => {
+                names.push(evt.id)
+            });
+            return names;
+        }
+
+        this.isIncludeElement = function(nonEffectTag, target){
+            for(var i in nonEffectTag){
+                if(isClassSelector(nonEffectTag[i]) && isMatchName(target.className, nonEffectTag[i], '.')){
+                    return true;
+                }
+                if(isId(nonEffectTag[i]) && isMatchName(new String(target.id), nonEffectTag[i], '#')){
+                    return true;
+                }
+                if(target.tagName.toLocaleLowerCase() === nonEffectTag[i]){
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function isClassSelector(value){
+            return value.replace(/\s/, '').indexOf('.') === 0;
+        }
+
+        function isId(value){
+            return value.replace(/\s/, '').indexOf('#') === 0;
+        }
+
+        function isMatchName(className, value, seletor){
+            value = value.replace(seletor, '');
+            let array = className.split(/\s/);
+            for(var i in array){
+                if(array[i] === value){
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    var functions = {
+        shortcutSearch : function(form){
+            var that = $(this);
+            var name = that.attr('form-search-name');
+            var value = that.attr('form-search-id');
+            var hideInput = form.find('input[name="'+name+'"]');
+            if(hideInput.length == 0){
+                form.append("<input type='hidden' name='"+name+"' value='"+value+"'>");
+            }else{
+                hideInput.val(value);
+            }
+            form.submit();
+        }
+    };
+
+    
+
+    var evtListener = new DocumentClickEventListener();
+
     $('#messageTip').click(function(){
         var that = $(this);
         var url = that.attr('href');
