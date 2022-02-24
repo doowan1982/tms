@@ -20,4 +20,17 @@ abstract class BaseAR extends \yii\db\ActiveRecord{
             return $tableName;
         return $tableName.' '.$alias;
     }
+
+    public static function dataConvertString($date, $format = '', $invaildMessage = '-'){
+        if(!$format){
+            $format = 'Y-m-d H:i';
+        }
+        if(!is_numeric($date)){
+            return $date;
+        }
+        if($date <= 0){
+            return $invaildMessage;
+        }
+        return date($format, $date);
+    }
 }

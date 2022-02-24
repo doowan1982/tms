@@ -83,7 +83,7 @@ $parameters = $this->context->parameters;
                         ?>
                         <tr>
                             <td><label><input type='checkbox' class='checkbox independentCheckbox' data-status='<?= $task->status?>' value='<?=$task->id?>'/></label></td>
-                            <td><a href='/project/pending-tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>'><?=$task->id?></td>
+                            <td><a href='/project/tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>' title='管理该任务' target='_blank'><?=$task->id?></a></td>
                             <td><a href='#' form-search-id='<?=$task->project_id?>' class='shortcutSearch' form-search-name='project_id' title='查看该项目任务'><?=$task->project->name?></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>

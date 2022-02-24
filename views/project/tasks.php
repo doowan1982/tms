@@ -110,7 +110,7 @@ $parameters = $this->context->parameters;
                         ?>
                         <tr>
                             <td><label><input type='checkbox' class='checkbox independentCheckbox' data-status='<?= $task->status?>' value='<?=$task->id?>'/></label></td>
-                            <td><a href='/project/tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>'><?=$task->id?></a></td>
+                            <td><a href='/task/index?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>' title='管理该任务' title='该任务所在任务地址'><?=$task->id?></a></td>
                             <td><?= $task->project->name ?><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a><?=$mainTask?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>
@@ -123,7 +123,7 @@ $parameters = $this->context->parameters;
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/project/tasks?main_task_id=<?= $task->id ?>' target='_blank' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/project/tasks?main_task_id=<?= $task->id ?>&task_active=0' target='_blank' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
+                                <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/task/index?main_task_id=<?= $task->id ?>' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/task/index?main_task_id=<?= $task->id ?>&task_active=0' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
                             </td>
                             <td><?= $status[$task['status']] ?></td>
                             <td><?= $array['publish_time'] ?><br/><a href="#" title='查看该成员发布的任务' form-search-name='publisher_id' form-search-id='<?=$publisher->id?>' class='shortcutSearch'><?= $publisher->real_name ?></a></td>
@@ -157,52 +157,6 @@ $parameters = $this->context->parameters;
         </div>
     </div>
 </div>
-
-<script type='text/html' id='changeLogTpl'>
-    <div id='searchProject'>
-        <div class='table-container'>
-            <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
-                <thead>
-                <tr>
-                    <td width='*'>名称</td>
-                    <td width='60'>优先级</td>
-                    <td width='100'>类型</td>
-                    <td width='50'>难度</td>
-                    <td width='100'>状态</td>
-                    <td width='150'>发布时间<br>期望完成时间</td>
-                    <td width='80'>实施人</td>
-                    <td width='150'>接收时间<br>实际完成时间</td>
-                    <td width='70'>变更时间</td>
-                    <td width='70'>内容</td>
-                </tr>
-                </thead>
-                <tbody>
-                {{if $data.list.length > 0}}
-                    {{each $data.list}}
-                    <tr>
-                        <td><%- $value['name']%></td>
-                        <td><%-$value['priority'] %></td>
-                        <td><%-$value['type'] %></td>
-                        <td><%-$value['difficulty'] %></td>
-                        <td><%- $value['status']%></td>
-                        <td><%-$value['publish_time'] %><br><%-$value['expected_finish_time'] %></td>
-                        <td><%-$value['receiver'] %></td>
-                        <td><%-$value['receive_time'] %><br><%-$value['real_finish_time'] %></td>
-                        <td><%-$value['log_time'] %></td>
-                        <td>
-                        {{if $value['log_id']}}
-                        <a href='#' class='content' data-id='{{$value['log_id']}}'>查看</td>
-                        {{else}}-{{/if}}
-                    </tr>
-                    {{/each}}
-                {{else}}
-                    <tr><td colspan='10' align='center'>暂无数据</td></tr>
-                {{/if}}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</script>
 
 <script type='text/html' id='allocateTpl'>
     <div>
@@ -260,16 +214,6 @@ $parameters = $this->context->parameters;
                 </tbody>
             </table>
         </div>
-    </div>
-</script>
-<script type="text/html" id='statSearchTpl'>
-    <div id='chartPanel'>
-        <input type='text' id='receiver' class='input-200' style="width:150px;" placeholder="实施人">
-        <input type='hidden' name='reciver_id' id='reciverId' class='input-100' placeholder="实施人">&nbsp;
-        <input type="text" name="stat_start_time" placeholder="起始日期" id="statStartTime" style="width:100px;" title="按任务创建时间"/>&nbsp;
-        <input type="text" id="statEndTime" name="stat_end_time"  style="width:100px;"  placeholder="截止日期" title="按任务创建时间"/>&nbsp;
-        <button class="statSearch">查询</button>
-        [chart/]
     </div>
 </script>
 <script type='text/javascript'>
@@ -360,7 +304,8 @@ $parameters = $this->context->parameters;
             var html = $(template('allocateTpl',{}));
             Dialog.content(html, {
                 title: title,
-                width: '300px',
+                width: 300,
+                height: 200,
                 buttons: [{
                     text : '确定',
                     click : function(){
@@ -450,12 +395,7 @@ $parameters = $this->context->parameters;
 
     $('.taskChangeLog').click(function(){
         request('/task-change-log/index?task_id='+$(this).attr('data-id'), function(rep){
-            
-            var html = $(template('changeLogTpl', {
-                'list' : getChangeLog(rep.data), 
-                'name': name
-            }));
-            Dialog.content(html, {
+            Dialog.content(getChangeLogHtml(rep.data), {
                 title: '变更记录',
                 width : '90%',
                 create : function(event, ui){

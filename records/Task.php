@@ -81,24 +81,14 @@ class Task extends \app\base\BaseAR{
      */
     public function fields(){
         $fields = parent::fields();
-        $this->update_time = date('Y-m-d H:i', $this->update_time);
-        $this->create_time = date('Y-m-d H:i', $this->create_time);
-        if($this->expected_finish_time){
-            $this->expected_finish_time = date('Y-m-d H:i', $this->expected_finish_time);
-        }else{
-            $this->expected_finish_time = '未设置';
-        }
-        if($this->receive_user_id > 0){
-            $this->receive_time = date('Y-m-d H:i', $this->receive_time);
-        }else{
-            $this->receive_time = '未领取';
-        }
-        $this->publish_time = date('Y-m-d H:i', $this->publish_time);
-        if($this->real_finish_time){
-            $this->real_finish_time = date('Y-m-d H:i', $this->real_finish_time);
-        }else{
-            $this->real_finish_time = '未完成';
-        }
+        $this->update_time = self::dataConvertString($this->update_time);
+        $this->create_time = self::dataConvertString($this->create_time);
+        $this->expected_finish_time = self::dataConvertString($this->expected_finish_time, '', '未设置');
+        $this->receive_time = self::dataConvertString($this->receive_time, '', '未设置');
+        $this->publish_time = self::dataConvertString($this->publish_time);
+        $this->receive_time = self::dataConvertString($this->receive_time, '', '未完成');
+        $this->real_finish_time = self::dataConvertString($this->real_finish_time, '', '未完成');
+        unset($fields['description']);
         return $fields;
     }
 
@@ -207,6 +197,16 @@ class Task extends \app\base\BaseAR{
 
     public function getTaskCodeFragment(){
         return $this->hasOne(TaskCodeFragment::class, ['task_id' => 'id']);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function extraFields(){
+        $fields = parent::extraFields();
+        $fields['mainTask'] = 'mainTask';
+        $fields['taskCodeFragment'] = 'taskCodeFragment';
+        return $fields;
     }
 
 }

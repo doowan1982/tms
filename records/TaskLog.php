@@ -46,7 +46,7 @@ class TaskLog extends Task{
      */
     public function fields(){
         $fields = parent::fields();
-        $this->log_time = date('Y-m-d H:i', $this->log_time);
+        $this->log_time = self::dataConvertString($this->log_time);
         return $fields;
     }
 

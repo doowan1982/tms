@@ -6,6 +6,7 @@ use Yii;
 use yii\web\Response;
 use app\models\Position;
 use app\records\Task;
+use app\records\TaskLog;
 use app\services\Tasks;
 use app\helpers\Helper;
 class TaskChangeLogController extends BaseController{
@@ -21,7 +22,17 @@ class TaskChangeLogController extends BaseController{
         $priorities = Task::getPriorities();
         $array = [];
         foreach($logs as $key=>$value){
-            $log = $value->toArray(['log_id', 'project_id', 'log_time', 'task_id', 'publisher_id', 'receive_user_id', 'receive_time', 'name', 'priority', 'difficulty', 'type', 'status', 'expected_finish_time', 'real_finish_time','publish_time'], ['receiver']);
+            $log = [];
+            $fields = ['project_id', 'task_id', 'publisher_id', 'receive_user_id', 'receive_time', 'name', 'priority', 'difficulty', 'type', 'status', 'expected_finish_time', 'real_finish_time','publish_time']; 
+            if(!$value instanceof TaskLog){
+                $log = $value->toArray($fields);
+                $log['project'] = $value->project;
+                $log['mainTask'] = $value->mainTask;
+                $log['receiver'] = $value->receiver;
+            }else{
+                $fields = array_merge($fields, ['log_id', 'log_time']);
+                $log = $value->toArray($fields, ['receiver', 'project', 'mainTask']);
+            }
             $log['priority'] = $priorities[$value['priority']];
             $log['status'] = $status[$value['status']];
             foreach($types as $type){

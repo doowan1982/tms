@@ -14,7 +14,8 @@
             <li><a href="/my/tasks">我的任务</a></li>
             <li><a href="/project/pending-tasks">待分发任务</a></li>
             <!-- <li><a href="/my/task-detail">工作日志</a></li> -->
-            <li><a href="/project">项目管理</a></li>
+            <li><a href="/task">全部任务</a></li>
+            <li><a href="/project">项目/任务管理</a></li>
             <li><a href="/member">成员管理</a></li>
             <li><a href="/stat">统计</a></li>
             <li><a href="/site/setting">设置</a></li>

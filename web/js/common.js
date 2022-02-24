@@ -111,6 +111,56 @@ function createCsrfBeforeSubmit(form){
     }
 }
 
+var changeLogTpl = "<div id='searchProject'>" +
+    "<div class='table-container'>" +
+        "<table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>" +
+            "<thead>" +
+            "<tr>" +
+                "<td width='*'>所在项目<br>主任务<br>名称</td>" +
+                "<td width='60'>优先级<br>难度</td>" +
+                "<td width='100'>类型<br>状态</td>" +
+                "<td width='150'>发布时间<br>期望完成时间</td>" +
+                "<td width='80'>实施人</td>" +
+                "<td width='150'>接收时间<br>实际完成时间</td>" +
+                "<td width='70'>变更时间</td>" +
+                "<td width='70'>内容</td>" +
+            "</tr>" +
+            "</thead>" +
+            "<tbody>" +
+            "{{if $data.list.length > 0}}" +
+                "{{each $data.list}}" +
+                "<tr>" +
+                    "<td>" +
+                        "<%- $value['project']%><br>" +
+                        "{{if $value['task_id'] > 0}}<%- $value['task']%>{{else}}-{{/if}}<br>" +
+                        "<%- $value['name']%>" +
+                    "</td>" +
+                    "<td><%-$value['priority'] %><br><%-$value['difficulty'] %></td>" +
+                    "<td><%-$value['type'] %><br><%- $value['status']%></td>" +
+                    "<td><%-$value['publish_time'] %><br><%-$value['expected_finish_time'] %></td>" +
+                    "<td><%-$value['receiver'] %></td>" +
+                    "<td><%-$value['receive_time'] %><br><%-$value['real_finish_time'] %></td>" +
+                    "<td><%-$value['log_time'] %></td>" +
+                    "<td>" +
+                    "{{if $value['log_id']}}" +
+                    "<a href='#' class='content' data-id='{{$value['log_id']}}'>查看</td>" +
+                    "{{else}}-{{/if}}" +
+                "</tr>" +
+                "{{/each}}" +
+            "{{else}}" +
+                "<tr><td colspan='8' align='center'>暂无数据</td></tr>" +
+            "{{/if}}" +
+            "</tbody>" +
+        "</table>" +
+    "</div>" +
+"</div>";
+
+function getChangeLogHtml(data){
+    return template.render(changeLogTpl, {
+        'list' : getChangeLog(data)
+    });
+}
+
 //比对出修改数据
 function getChangeLog(logs){
     var previous = null;
@@ -122,13 +172,20 @@ function getChangeLog(logs){
             };
         }
         logs[i]['receiver'] = logs[i]['receiver']['real_name'];
+        logs[i]['project'] = logs[i]['project']['name'];
+        logs[i]['task'] = logs[i]['mainTask'] ? logs[i]['mainTask']['name'] : '-';
         var current = $.extend({}, logs[i]);
         if(previous){
             for(var j in previous){
-                if(j == 'log_time' || j == 'log_id'){
+                if(typeof(previous[j]) === 'object' || j == 'log_time' || j == 'log_id' || j == 'task' || j == 'project'){
                     continue;
                 }
                 if(previous[j] !== current[j]){
+                    if(j == 'project_id'){
+                        j = 'project'; 
+                    }else if(j == 'task_id'){
+                        j = 'task'; 
+                    }
                     logs[i][j] = change.replace('[[value]]', logs[i][j]);
                 }
             }
@@ -194,8 +251,8 @@ var Dialog = {
         opts = $.extend({
             modal: true,
             closeOnEscape: true,
-            width: size['width'],
-            height: size['height'],
+            width: opts['width'] || size['width'],
+            height: opts['height'] || size['height'],
             buttons: [{
                 text : '确定',
                 click : function(){
@@ -217,7 +274,8 @@ var Dialog = {
         opts = $.extend({
             title : '消息',
             modal: true,
-            width: '300px',
+            width: 300,
+            height: 200,
             minHeight: 100,
             closeOnEscape: true,
             buttons: [
@@ -469,8 +527,17 @@ function graphicsStat(myChart, list, undoCount){
     };
 
     myChart.setOption(option);
-    }
+}
 
+var tasksInProjectStatTpl = "<div id='chartPanel'>"+
+                    "<input type='text' id='receiver' class='input-200' style='width:150px;' placeholder='实施人'>"+
+                    "<input type='hidden' name='reciver_id' id='reciverId' class='input-100' placeholder='实施人'>&nbsp;"+
+                    "<input type='text' name='stat_start_time' placeholder='起始日期' id='statStartTime' style='width:100px;' title='按任务创建时间'/>&nbsp;"+
+                    "<input type='text' id='statEndTime' name='stat_end_time'  style='width:100px;'  placeholder='截止日期' title='按任务创建时间'/>&nbsp;"+
+                    "<button class='statSearch'>查询</button>"+
+                    "<button class='reset'>清空</button>"+
+                    "[chart/]"+
+                "</div>";
 function statTask(url, id, statType, params){
     statType = statType || 'graphics';
     params = params || {};
@@ -503,7 +570,7 @@ function statTask(url, id, statType, params){
                 title: '任务统计'
             });
         }else{
-            html = template('statSearchTpl', {}).replace('[chart/]', createDialogWarpperHtml('chart', '', 0.8, 0.7));
+            html = template.render(tasksInProjectStatTpl, {}).replace('[chart/]', createDialogWarpperHtml('chart', '', 0.8, 0.7));
             var size = Dialog.getSize(0.9, 0.95);
             Dialog.content($(html), {
                 title: '任务统计',
@@ -549,9 +616,15 @@ function statTask(url, id, statType, params){
                     });
                     endTime.val(params['end_time'] || '');
 
+                    target.find('.reset').click(function(){
+                        $(this).parent().find('input').each(function(){
+                            $(this).val('');
+                        });
+                    }).button();
+
                     target.find('.statSearch').click(function(){
                         target.dialog('close');
-                        statTask(id, statType, {
+                        statTask(url, id, statType, {
                             'start_time' : startTime.val(),
                             'end_time' : endTime.val(),
                             'receive_user_id' : receiverId.val(),
@@ -568,18 +641,18 @@ function statTask(url, id, statType, params){
     });
 }
 
-
-//统计模板
+//统计列表模板
 var tpl = "<div style='border-top: 1px solid #ccf;line-height:40px;' class='forkTaskTreeDiv'>"+
     "<span>{{blank}}&nbsp;</span>"+
     "<span>"+
         "<a href='/project/tasks?project_id={{projectId}}&task_id={{id}}&main_task_id={{mainTaskId}}' target='_blank'>{{name}}</a>"+
         "<span>【{{projectName}}】</span>"+
     "</span>"+
-    "<span class='tags action-tags' data-status='{{status}}' style='{{style}}'>{{statusName}}</span>"+
-    "<span class='tags'>{{typeName}}</span>"+
+    "<span class='tags action-tags statusTag' data-status='{{status}}' title='两次点击可恢复列表'  style='{{style}}'>{{statusName}}<span class='selected-tag-icon'></span></span>"+
+    "<span class='tags action-tags typeTag' title='两次点击可恢复列表' style='{{typeStyle}}' data-type='{{type}}'>{{typeName}}<span class='selected-tag-icon'></span></span>"+
 "</div>";
-var statTpl = "<div style='line-height:40px;'>"+
+//统计模板
+var statTpl = "<div style='line-height:40px;' id='forkTaskStat'>"+
     "<font style='font-weight:bold'>共计{{taskCount}}个任务&nbsp;&nbsp;"+
         "<font class='tags' data-status='1' style='{{awaitReceiveTasksStyle}}'>待领取{{awaitReceiveTasksCount}}个{{awaitReceiveTasksPercent}}%</font>&nbsp;&nbsp;"+
         "<font class='tags' data-status='10' style='{{awaitTasksStyle}}'>待实施{{awaitTasksCount}}个&nbsp;{{awaitTasksPercent}}%</font>&nbsp;&nbsp;"+
@@ -601,6 +674,7 @@ function loadForkTaskTree(id){
             }
             node['blank'] = blank.join('');
             node['mainTaskId'] = mainTaskId;
+            node['typeStyle'] = getCategoriesColour(node['type']);
             var style = '';
             stat.taskCount++;
             switch(node['status']){
@@ -642,75 +716,190 @@ function loadForkTaskTree(id){
         }
         return html;
     }
-    request('/task/get-fork-tasks?id='+id, function(rep){
-        var stat = {
-            'taskCount' : 0,
-            'awaitReceiveTasksCount': 0, //待领取
-            'awaitTasksCount': 0, //待实施
-            'activedTasksCount': 0, //实施中
-            'completeTaskCount': 0, //已完成
-            'terminateTasksCount': 0 //终止
-        };
-        var html = fn(rep.data, 0, 0, stat);
-        stat['awaitReceiveTasksPercent'] = round(stat.awaitReceiveTasksCount/stat.taskCount);
-        stat['awaitTasksPercent'] = round(stat.awaitTasksCount / stat.taskCount, 2);
-        stat['activedTasksPercent'] = round(stat.activedTasksCount / stat.taskCount, 2);
-        stat['completeTaskPercent'] = round(stat.completeTaskCount / stat.taskCount, 2);
-        stat['terminateTasksPercent'] = round(stat.terminateTasksCount / stat.taskCount, 2);
+
+    var stat = {
+        'taskCount' : 0,
+        'awaitReceiveTasksCount': 0, //待领取
+        'awaitTasksCount': 0, //待实施
+        'activedTasksCount': 0, //实施中
+        'completeTaskCount': 0, //已完成
+        'terminateTasksCount': 0 //终止
+    };
+
+    function forkTaskStat(stat){
+        stat['awaitReceiveTasksPercent'] = round(stat.awaitReceiveTasksCount / stat.taskCount * 100, 0);
+        stat['awaitTasksPercent'] = round(stat.awaitTasksCount / stat.taskCount * 100, 0);
+        stat['activedTasksPercent'] = round(stat.activedTasksCount / stat.taskCount * 100, 0);
+        stat['completeTaskPercent'] = round(stat.completeTaskCount / stat.taskCount * 100, 0);
+        stat['terminateTasksPercent'] = round(stat.terminateTasksCount / stat.taskCount * 100, 0);
         stat['awaitReceiveTasksStyle'] = getColour(1);
         stat['awaitTasksStyle'] = getColour(10);
         stat['activedTasksStyle'] = getColour(20);
         stat['completeTaskStyle'] = getColour(40);
         stat['terminateTasksStyle'] = getColour(50);
-        html = template.render(statTpl, stat) + html;
+        return template.render(statTpl, stat);
+    }
+
+    function reloadStatHtml(targets, all){
+        var data = {
+            taskCount : 0,
+            awaitReceiveTasksCount : 0,
+            awaitTasksCount : 0,
+            activedTasksCount : 0,
+            completeTaskCount : 0,
+            terminateTasksCount : 0
+        };
+        targets.each(function(){
+            var that = $(this);
+            var tags = that.find('.selectedTag');
+            if(tags.length === 0 && !all){
+                return;
+            }
+            var status = that.find('.statusTag').attr('data-status');
+            status = parseInt(status);
+            data.taskCount++;
+            switch(status){
+                case 1 : {
+                    data.awaitReceiveTasksCount++;
+                } break;
+                case 10 : {
+                    data.awaitTasksCount++;
+                } break;
+                case 20 : {
+                    data.activedTasksCount++;
+                } break;
+                case 40 : {
+                    data.completeTaskCount++;
+                } break;
+                case 50 : {
+                    data.terminateTasksCount++;
+                };
+            }
+        });
+        $(forkTaskStat(data)).replaceAll($('#forkTaskStat'));
+    }
+
+    request('/task/get-fork-tasks?id='+id, function(rep){
+        var html = fn(rep.data, 0, 0, stat);
+        html = forkTaskStat(stat) + html;
         Dialog.content(html, {
             title: '【'+rep.data.name+'】任务树',
             create: function(){
                 var that = $(this);
+                var search = {
+                    name: 0,
+                    value: 0,
+                };
+
+                //此处可绑定多个搜索项
+                var searchItems = [
+                    {
+                        name: 'data-type',
+                        value: 0
+                    },
+                    {
+                        name: 'data-status',
+                        value: 0
+                    },
+                ];
                 that.on('click', '.action-tags', function(){
                     var tag = $(this);
-                    var status = tag.attr('data-status');
-                    that.find('.action-tags').each(function(){
-                        if($(this).attr('data-status') !== status){
-                            if($(this).hasClass('no-active')){
-                                $(this).removeClass('no-active').parent('.forkTaskTreeDiv').show();
-                            }else{
-                                $(this).addClass('no-active').parent('.forkTaskTreeDiv').hide();
-                            }
+                    var revert = tag.hasClass('selectedTag');
+                    
+                    for(var i in searchItems){
+                        var name = searchItems[i].name;
+                        if(!tag.attr(name)){
+                            continue;
+                        }
+                        if(!revert){
+                            searchItems[i].value = parseInt(tag.attr(name));
+                        }else if(revert){
+                            searchItems[i].value = 0;
+                        }
+                    }
+                    tag.parents('.forkTaskTreeDiv').siblings('.forkTaskTreeDiv').each(function(index){
+                        var div = $(this);
+                        if(searchTags(searchItems, div.find('.action-tags'))){
+                            div.show();
+                        }else{
+                            div.hide().find('.selectedTag').removeClass('selectedTag');
                         }
                     });
+                    if(!revert){
+                        tag.addClass('selectedTag');
+                    }else{
+                        tag.removeClass('selectedTag');
+                    }
+
+                    reloadStatHtml($('.forkTaskTreeDiv'), $('.selectedTag').length === 0);
                 });
             }
         });
     });
 }
 
-function getColour(status){
-    var style = '';
-    switch(status){
-        case 10:{
-            style = 'background-color: #FFF8DC; cursor: pointer;';
-        }
-        break;
-        case 20:{
-            style = 'color:#fff; background-color: #4169E1; cursor: pointer;';
-        }
-        break;
-        case 30:{
-            style = 'color:#fff; background-color: #87CEFA; cursor: pointer;';
-        }
-        break;
-        case 40:{
-            style = 'color:#fff; background-color: #32CD32; cursor: pointer;';
-        }
-        break;
-        case 50:{
-            style = 'background-color: #D3D3D3; cursor: pointer;';
-        }
-        break;
-        default:{
-            style = 'background-color: #FFFF00; cursor: pointer;';
+/**
+ * 通过给定的value来匹配同一组的多个tags
+ * @return boolean
+ */
+function searchTags(search, tags){
+    var matchedCount = 0;
+    var expectedCount = 0;
+    for(var i in search){
+        if(search[i].value > 0){
+            expectedCount++;
         }
     }
-    return style;
+    if(expectedCount <= 0){
+        tags.removeClass('selectedTag');
+        return true;
+    }
+    matchedCount = 0;
+    tags.each(function(){
+        var tag = $(this);
+        if(matchTag(search, tag)){
+            matchedCount++;
+            tag.addClass('selectedTag');
+        }else{
+            tag.removeClass("selectedTag");
+        }
+    });
+    return matchedCount === expectedCount;
+}
+
+function matchTag(search, obj){
+    for(var i in search){
+        var val = search[i].value;
+        if(val && val == parseInt(obj.attr(search[i].name))){
+            return true;
+        }
+    }
+    return false;
+}
+
+function getCategoriesColour(type){
+    var config = {
+        1: 'background-color: #ced671; cursor: pointer;',
+        2: 'background-color: #a355af; color:#fff; cursor: pointer;',
+        3: 'background-color: #55a5af; color:#fff; cursor: pointer;',
+        4: 'background-color: #af555f; color:#fff; cursor: pointer;',
+        5: 'background-color: #af7355; color:#fff; cursor: pointer;',
+        6: 'background-color: #dad3d5; cursor: pointer;',
+        7: 'background-color: #5011b0; color:#fff; cursor: pointer;',
+        8: 'background-color: #0a1352; color:#fff; cursor: pointer;',
+        9: 'background-color: #0d520a; color:#fff; cursor: pointer;',
+    };
+    return config[type];
+}
+
+function getColour(status){
+    var config = {
+        1:'background-color: #FFFF00; cursor: pointer;',
+        10:'background-color: #FFF8DC; cursor: pointer;',
+        20:'color:#fff; background-color: #4169E1; cursor: pointer;',
+        30:'color:#fff; background-color: #87CEFA; cursor: pointer;',
+        40:'color:#fff; background-color: #32CD32; cursor: pointer;',
+        50:'background-color: #D3D3D3; cursor: pointer;'
+    };
+    return config[status] || config[1];
 }

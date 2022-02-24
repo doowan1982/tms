@@ -31,7 +31,6 @@ include_once(Yii::getAlias('@view/common/header.php'));
 
             <div class='float-right'>
                 <button type="button" id='createProject'>新增项目</button>
-                <button type="button" id='allTasks'>所有任务列表</button>
             </div>
             <div class='float-clear'></div>
 
@@ -137,16 +136,6 @@ include_once(Yii::getAlias('@view/common/header.php'));
         </div>
     </div>
 </script>
-<script type="text/html" id='statSearchTpl'>
-    <div id='chartPanel'>
-        <input type='text' id='receiver' class='input-200' style="width:150px;" placeholder="实施人">
-        <input type='hidden' name='reciver_id' id='reciverId' class='input-100' placeholder="实施人">&nbsp;
-        <input type="text" name="stat_start_time" placeholder="起始日期" id="statStartTime" style="width:100px;" title="按任务创建时间"/>&nbsp;
-        <input type="text" id="statEndTime" name="stat_end_time"  style="width:100px;"  placeholder="截止日期" title="按任务创建时间"/>&nbsp;
-        <button class="statSearch">查询</button>
-        [chart/]
-    </div>
-</script>
 <script type='text/javascript'>
     $("select[name='status']" ).selectmenu({
         'width' : 150,
@@ -192,9 +181,6 @@ include_once(Yii::getAlias('@view/common/header.php'));
     });
     $('#createProject').click(function(){
         window.location.href = '/project/create';
-    });
-    $('#allTasks').click(function(){
-        window.location.href = '/task';
     });
 </script>
 <?php 

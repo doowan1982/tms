@@ -11,6 +11,7 @@ use app\records\TaskCategory;
 use app\records\TaskCodeFragment;
 use app\records\Project;
 use app\events\TaskEvent;
+use app\events\ChangeProjectEvent;
 use app\events\TaskFinishEvent;
 use app\events\TaskProcessingEvent;
 use app\events\TaskTerminateOrRestartEvent;
@@ -75,6 +76,16 @@ class Tasks extends \app\base\Service{
      * 子任务变更事件
      */
     const EVENT_EXCHANGE_TASK = 'exchangeTask';
+
+    /**
+     * 任务所在项目变更事件
+     */
+    const EVENT_CHANGE_PROJECT = 'changeProject';
+
+    /**
+     * 新增任务到项目事件
+     */
+    const EVENT_ADD_TASK_TO_PROJECT = 'addTaskToProject';
     
     /**
      * 返回一条任务记录
@@ -208,9 +219,11 @@ class Tasks extends \app\base\Service{
         $project = $task->project;
         if($project == null){
             return $this->setError("无法创建任务，原因：项目不存在【{$task->project_id}】");
+        }else if($project->id != $task->project_id){
+            $project = Project::findOne($task->project_id);
         }
         if(!$this->isActived($task)){
-            return $this->nonActivedTaskSave($task);
+            return $this->nonActivedTaskSave($task, $project);
         }
         if($task->expected_finish_time > 0 && $task->expected_finish_time < time()){
             return $this->setError('预期完成时间需大于当前时间');
@@ -259,7 +272,7 @@ class Tasks extends \app\base\Service{
                     return false;
                 }
             }
-            if(!$task->save()){
+            if(!$this->_saveTask($task, $project)){
                 return $this->setError('编辑失败');
             }
             //与上一个实施人不同，则自动领取
@@ -298,27 +311,30 @@ class Tasks extends \app\base\Service{
     /**
      * $task不再活跃状态时的数据更新
      * 仅支持项目和主任务的变更
-     * @param  Task   $task
+     * @param Task   $task
+     * @param Project $project
      * @return boolean
      */
-    public function nonActivedTaskSave(Task $task){
-        $projectId = $task->project->id;
+    public function nonActivedTaskSave(Task $task, Project $project){
         //不活跃的任务仅可更新所在项目以及主任务
-        $mainTask = $task->mainTask; //当前的主任务
+        $mainTask = null;
+        if($task->task_id > 0){
+            $mainTask = $task->mainTask; //当前的主任务
+        }
         $task->setAttributes($task->getOldAttributes());
         $prevTask = $mainTask; //默认为同一任务
         //$mainTask为null则从$prevTask中删除了对应的父级任务
         if($mainTask === null || $mainTask != null && $task->task_id !== $mainTask->id){
-            $prevTask = Yii::$app->get('taskService')->getTaskById($task->task_id);
+            $prevTask = $this->getTaskById($task->task_id);
         }
-        $task->project_id = $projectId;
+
         $transaction = Yii::$app->db->beginTransaction();
         try{
             //$mainTask为null则从$prevTask中删除了对应的父级任务
             if(($mainTask === null || $mainTask !== $prevTask) && !$this->exchangeTask($task, $prevTask, $mainTask)){
                 return false;
             }
-            if($task->update() === false){
+            if(!$this->_saveTask($task, $project)){
                 return $this->setError('非活跃任务保存失败');
             }
             $transaction->commit();
@@ -368,7 +384,6 @@ class Tasks extends \app\base\Service{
                 $this->changeForkTaskCount($from, false);
                 if($this->isActived($task)){
                     $from->fork_activity_count--;
-                    
                 }
                 if($from->update() === false){
                     return $this->setError('任务更换失败');
@@ -454,8 +469,6 @@ class Tasks extends \app\base\Service{
             return $this->setError('该任务存在子任务');
         }
 
-        //任务删除同时将状态改为终止
-        $task->status = Task::TERMINATION_STATUS;
         $task->is_delete = Task::DELETE;
 
         $mainTask = null;
@@ -467,9 +480,15 @@ class Tasks extends \app\base\Service{
         try{
             if($mainTask != null){
                 $this->changeForkTaskCount($mainTask, false);
-                $this->updateForkActivityCount($mainTask, $task);
+                //不为终止状态时可更新活跃任务数
+                if($task->status != Task::TERMINATION_STATUS){
+                    if(!$this->updateForkActivityCount($mainTask, $task)){
+                        return $this->setError('主任务活跃数更新失败');
+                    }
+                }else if(!$mainTask->save()){ //否则仅更新任务数
+                    return $this->setError('主任务更新任务数失败');
+                }
             }
-
             if(!$task->update()){
                 return $this->setError('删除失败');
             };            
@@ -496,6 +515,10 @@ class Tasks extends \app\base\Service{
             return $this->setError('任务有效状态冲突');
         }
 
+        if($task->fork_activity_count > 0){
+            return $this->setError('该任务存在活跃子任务');
+        }
+
         $event = new TaskTerminateOrRestartEvent([
             'task' => $task,
             'project' => $task->project,
@@ -519,6 +542,10 @@ class Tasks extends \app\base\Service{
             }
         }else{
             $task->status = Task::TERMINATION_STATUS;
+        }
+        $mainTask = $task->mainTask;
+        if($mainTask != null && !$this->updateForkActivityCount($mainTask, $task)){
+            return $this->setError('主任务活跃数更新失败');
         }
         if(!$task->save()){
             return $this->setError($task->getErrorString());
@@ -649,7 +676,7 @@ class Tasks extends \app\base\Service{
      * @return TaskLog
      */
     public function getChangeLogById($id){
-        return TaskLoG::findOne($id);
+        return TaskLog::findOne($id);
     }
 
     /**
@@ -718,11 +745,9 @@ class Tasks extends \app\base\Service{
                 return $this->setError($task->getErrorString());
             }
 
-            if($task->task_id > 0){
-                $mainTask = Task::findOne($task->task_id);
-                if(!$this->updateForkActivityCount($mainTask, $task)){
-                    return $this->setError('主任务活跃数更新失败');
-                }
+            $mainTask = $task->mainTask;
+            if($mainTask != null && !$this->updateForkActivityCount($mainTask, $task)){
+                return $this->setError('主任务活跃数更新失败');
             }
 
             if($this->hasEventHandlers(self::EVENT_AFTER_FINISHED_TASK)){
@@ -788,7 +813,15 @@ class Tasks extends \app\base\Service{
      * @return TaskLog 如果不存在则返回null
      */
     public function getSequenceLogByTask(Task $task, $sequence = 1){
-        $log = TaskLog::find()->where(['id' => $task->id])
+        $log = TaskLog::find()->where([
+                        'id' => $task->id,
+                        //此处仅有效状态数据
+                        'status' => [
+                            Task::WAITING_STATUS,
+                            Task::WAITTING_ADVANCE_STATUS,
+                            Task::ADVANCE_STATUS,
+                        ]
+                    ])
                     ->orderBy([
                         'log_id' => SORT_DESC
                     ])
@@ -892,6 +925,7 @@ class Tasks extends \app\base\Service{
     //日志查询
     private function taskLogs($where){
         $query = TaskLog::find()->alias('t')
+                    ->joinWith(['project pro'])
                     ->joinWith(['publisher p'])
                     ->joinWith(['mainTask m'])
                     ->joinWith(['receiver r'])
@@ -934,6 +968,30 @@ class Tasks extends \app\base\Service{
             $task->fork_activity_count--;
         }
         return $this->save($task) !== false;
+    }
+
+    /**
+     * 保存任务
+     * @param Task $task
+     * @param Project $project
+     * @return boolean
+     */
+    private function _saveTask(Task $task, Project $project){
+        //任务变更
+        if($project->id != $task->project->id){
+            $this->trigger(self::EVENT_CHANGE_PROJECT, new ChangeProjectEvent([
+                    'task' => $task,
+                    'project' => $project,
+                    'source' => $task->project,
+                ]));
+        }else if($task->getIsNewRecord()){
+            $this->trigger(self::EVENT_ADD_TASK_TO_PROJECT, new TaskEvent([
+                    'task' => $task,
+                    'project' => $project,
+                ]));
+        }
+        $task->project_id = $project->id;
+        return $task->save() !== false;
     }
 
 

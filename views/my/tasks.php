@@ -87,13 +87,13 @@ $parameters = $this->context->parameters;
                             }
                         ?>
                         <tr>
-                            <td><?=$task->id?></td>
+                            <td><a href='/project/tasks?project_id=<?=$task->project_id?>&task_id=<?=$task->id?>' title='管理该任务' target='_blank'><?=$task->id?></a></td>
                             <td><a href='/my/tasks?project_id=<?=$task->project_id?>' title='查看该项目任务'><span class='projectName'><?=$task->project->name?></span></a><br><a href='/project/task-detail?id=<?=$task['id']?>' class='detail' title='查看详情'><?= $task['name'] ?></a>&nbsp;<?= $mainTask ?></td>
                             <td><?= $priorities[$task['priority']] ?></td>
                             <td><?= $task['difficulty'] ?></td>
                             <td><?= $task->category->name ?></td>
                             <td>
-                                <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/project/tasks?main_task_id=<?= $task->id ?>' target='_blank' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/project/tasks?main_task_id=<?= $task->id ?>&task_active=0' target='_blank' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
+                                <?php if($task['fork_task_count'] > 0):?><a href='#' class='forkTaskTree' data-id='<?=$task->id?>' title='直接间接子任务'>任务树</a><br><a href='/task/index?main_task_id=<?= $task->id ?>' title='直接子任务'><?= $task['fork_task_count'] ?></a><?php else:?>0<?php endif;?>&nbsp;/&nbsp;<?php if($task['fork_activity_count'] > 0):?><a href='/task/index?main_task_id=<?= $task->id ?>&task_active=0' title='直接活跃子任务'><?= $task['fork_activity_count'] ?></a><?php else:?><?= $task['fork_activity_count'] ?><?php endif;?>
                             </td>
                             <td><?= $status[$task['status']] ?></td>
                             <td><?= $publisher->real_name ?></td>
@@ -314,6 +314,8 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
             }));
             Dialog.content(html, {
                 title: title,
+                width:300,
+                height:200,
                 minWidth: '100px',
                 width: 'auto',
                 buttons: [{

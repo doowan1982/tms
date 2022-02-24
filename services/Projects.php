@@ -116,7 +116,7 @@ class Projects extends \app\base\Service{
      * @param array $conditions
      */
     public function getTasks($conditions){
-        $conditions['t.is_valid'] = Task::VALID;
+        // $conditions['t.is_valid'] = Task::VALID;
         return $this->tasks($conditions);
     }
 
@@ -134,7 +134,7 @@ class Projects extends \app\base\Service{
 
     /**
      * 返回指定用户的任务信息
-     * @param Member $member
+     * @param AbstractMember $member
      * @return \yii\data\DataProviderInterface
      */
     public function getTasksByMember(Member $member, $conditions=[]){

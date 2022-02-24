@@ -16,7 +16,7 @@ use yii\helpers\ArrayHelper;
 class ProjectController extends BaseController{
 
     public function actionIndex(){
-        $this->setPosition(new Position(['name' => '项目管理']));
+        $this->setPosition(new Position(['name' => '项目/任务管理']));
         $params = $this->parameters;
         if(!isset($params['start_time'])){
             $params['start_time'] = 0;
@@ -59,28 +59,11 @@ class ProjectController extends BaseController{
     public function actionTasks(){
         $service = \Yii::$app->get('projectService');
         $project = $service->findById($this->get('project_id'));
-        $taskId = $this->get('main_task_id', 0);
-        $id = $this->get('task_id', null);
-        //优先匹配主任务$taskId，次任务$id在主任务为0时仅显示次任务的数据
-        if($id > 0 && $taskId < 1){
-            $taskId = null;
-        }
-        $this->setPosition(new Position(['name' => '项目管理', 'jumpUrl' => Constants::PROJECT_HOME]));
-        $name = $jump = '';
-        if($project === null && $taskId < 1){
+        $this->setPosition(new Position(['name' => '项目/任务管理', 'jumpUrl' => Constants::PROJECT_HOME]));
+        if($project === null){
             return $this->error('项目不存在');
-        }else if($project == null){
-            $task = Yii::$app->get('taskService')->getTaskById($taskId);
-            if($task === null){
-                return $this->error('任务不存在');
-            }
-            $project = $task->project;
-            $name = "【{$task->name}】子任务列表";
-        }else{
-            $name = "【{$project->name}】任务列表";
-            $params['project_id'] = $project->id;
         }
-        $this->setPosition(new Position(['name' => $name, 'jumpUrl' => Constants::TASKS_ON_PROJECT."?project_id={$project->id}"]));
+        $this->setPosition(new Position(['name' => "【{$project->name}】任务列表", 'jumpUrl' => Constants::TASKS_ON_PROJECT."?project_id={$project->id}"]));
         $startTime = $this->get('start_time');
         $endTime = $this->get('end_time');
         $params['timestamp_range'] = Helper::timestampRange($startTime, $endTime);
@@ -88,19 +71,16 @@ class ProjectController extends BaseController{
         $params['type'] = $this->get('type', null);
         $params['status'] = $this->get('status', null);
         $params['username'] = $this->get('username', null);
-        $params['task_id'] = $id;
-        $params['main_task_id'] = $taskId;
+        $params['task_id'] = $this->get('task_id', null);
+        if(!$params['task_id']){
+            $params['main_task_id'] = $this->get('main_task_id', 0);
+        }else{
+            $params['main_task_id'] = $this->get('main_task_id', null);
+        }
+        $params['project_id'] = $project->id;
         $params['priority'] = $this->get('priority', null);
         $params['receive_user_id'] = $this->get('receive_user_id', null);
         $params['publisher_id'] = $this->get('publisher_id', null);
-        $hasActive = $this->get('task_active', 1);
-        if(!$hasActive){
-            $params['status'] = [
-                Task::WAITING_STATUS,
-                Task::WAITTING_ADVANCE_STATUS,
-                Task::ADVANCE_STATUS
-            ];
-        }
         return $this->render('tasks', [
                 'tasks' => $service->getTasks($params),
                 'status' => Task::getTaskStatus(),
@@ -518,7 +498,7 @@ class ProjectController extends BaseController{
 
         $task = $taskService->getTaskById($id);
         if($task == null){
-            return $this->setError('任务不存在');
+            return $this->error('任务不存在');
         }
 
         $member = $this->getMember();

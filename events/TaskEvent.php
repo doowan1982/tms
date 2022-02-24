@@ -4,7 +4,7 @@ namespace app\events;
 class TaskEvent extends CommonEvent{
 
     /**
-     * 项目模型
+     * 所在项目模型
      * @var app\records\Project
      */
     public $project;
