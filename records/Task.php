@@ -49,6 +49,12 @@ class Task extends \app\base\BaseAR{
     const NON_DELETE = 0;
 
     /**
+     * 内容描述
+     * @var string
+     */
+    public $description = '';
+
+    /**
      * @inheritdoc
      */
     public static function tableName(){
@@ -88,7 +94,6 @@ class Task extends \app\base\BaseAR{
         $this->publish_time = self::dataConvertString($this->publish_time);
         $this->receive_time = self::dataConvertString($this->receive_time, '', '未完成');
         $this->real_finish_time = self::dataConvertString($this->real_finish_time, '', '未完成');
-        unset($fields['description']);
         return $fields;
     }
 
@@ -100,7 +105,6 @@ class Task extends \app\base\BaseAR{
             'project_id' => '所在项目',
             'task_id' => '所在任务',
             'name' => '任务名称',
-            'description' => '任务描述',
             'priority' => '优先级',
             'status' => '状态',
             'difficulty' => '复杂度',
@@ -122,9 +126,8 @@ class Task extends \app\base\BaseAR{
      */
     public function rules(){
         return [
-            [['project_id', 'name','description', 'priority', 'publish_time', 'type'], 'required'],
+            [['project_id', 'name', 'priority', 'publish_time', 'type'], 'required'],
             [['name'], 'string','max'=>80],
-            [['description'], 'string'],
             [['project_id', 'task_id', 'priority', 'status', 'type', 'is_valid', 'publisher_id', 'publish_time', 'receive_user_id', 'receive_time', 'fork_activity_count', 'fork_task_count', 'create_time', 'update_time'], 'integer'], 
             [['difficulty', 'expected_finish_time'], 'number'],
             [['status'], 'in', 'range' => array_keys(self::getTaskStatus())],
@@ -171,8 +174,9 @@ class Task extends \app\base\BaseAR{
     public function addTaskLog(){
         $log = new TaskLog();
         $log->id = $this->id;
+        $log->description = $this->description;
         $log->setAttributes($this->getOldAttributes());
-        $log->insert();
+        $log->save();
     }
 
     public function getProject(){
@@ -197,6 +201,10 @@ class Task extends \app\base\BaseAR{
 
     public function getTaskCodeFragment(){
         return $this->hasOne(TaskCodeFragment::class, ['task_id' => 'id']);
+    }
+
+    public function getTaskDescription(){
+        return $this->hasOne(TaskDescription::class, ['task_id' => 'id']);
     }
 
     /**

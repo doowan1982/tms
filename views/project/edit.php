@@ -85,7 +85,27 @@ if(!$project->getIsNewRecord()){
     });
 
     $('form').submit(function(){
-        $('#description').text(editor.html());
+        let name = $('input[name="name"]').val();
+        if(!name){
+            Dialog.message('项目名称不能为空');
+            return false;
+        }
+        let expectedStartTime = $('input[name="expected_start_time"]').val();
+        if(!expectedStartTime){
+            Dialog.message('预期开始时间不能为空');
+            return false;
+        }
+        let expectedEndTime = $('input[name="expected_end_time"]').val();
+        if(!expectedEndTime){
+            Dialog.message('预期完成时间不能为空');
+            return false;
+        }
+        let description = editor.html();
+        if(!description){
+            Dialog.message('项目描述不能为空');
+            return false;
+        }
+        $('#description').text(description);
         createCsrfBeforeSubmit($(this));
         return true;
     });

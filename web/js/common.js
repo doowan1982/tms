@@ -903,3 +903,30 @@ function getColour(status){
     };
     return config[status] || config[1];
 }
+
+function createSelectPlugin(elements, options){
+    elements.selectmenu({
+        'width' : 110,
+        'height' : 20
+    }, options);
+}
+
+function createMultiSelectPlugin(elements, options){
+    if(typeof(elements) !== 'object'){
+        return;
+    }
+    options = $.extend({
+        buttonWidth: 450,
+        selectedList: 8,
+        header:false,
+        noneSelectedText: '--请选择参与人--',
+        menuHeight: 100,
+        menuWidth: 450,
+        wrapText: ['button', 'options'],
+        selectedText: '已选 # 个，共 # 个',
+        classes: 'multiselect',
+        groupColumns: true,
+        resizableMenu: true,
+    }, options);
+    elements.multiselect(options);
+}

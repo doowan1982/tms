@@ -11,26 +11,24 @@ $parameters = $this->context->parameters;
                 <input type="text" name='name' placeholder='任务描述' class='input-100' value='<?= isset($parameters['name']) ? $parameters['name'] : ''?>'>
                 <input type="text" name='start_time' id='startTime' placeholder='接收起始时间' class='input-100' value='<?= isset($parameters['start_time']) ? $parameters['start_time'] : ''?>'>
                 <input type="text" name='end_time' id='endTime' placeholder='接收截至时间' class='input-100' value='<?= isset($parameters['end_time']) ? $parameters['end_time'] : ''?>'>
-                <select name='status'>
-                    <option value=''>--状态--</option>
+                <select name='status[]' multiple="multiple">
                     <?php foreach($status as $key=>$name):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['status']) && $parameters['status'] == $key){
+                            if(isset($parameters['status']) && in_array($key, $parameters['status'])){
                                 $selected = 'selected=true';
                             }
                         ?>
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
-                <select name='priority'>
-                    <option value=''>--优先级--</option>
+                <select name='priority[]' multiple="multiple">
                     <?php foreach($priorities as $key=>$name):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['priority']) && $parameters['priority'] == $key){
+                            if(isset($parameters['priority']) && in_array($key, $parameters['priority'])){
                                 $selected = 'selected=true';
                             }
                         ?>
@@ -369,10 +367,22 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
         return false;
     })
 
-    $("select" ).selectmenu({
-        'width' : 110,
-        'height' : 20
+    createMultiSelectPlugin($('select[name="priority[]"]'), {
+        menuWidth: 130,
+        selectedList: 0,
+        groupColumns: false,
+        buttonWidth:150,
+        noneSelectedText: '--优先级--'
     });
+
+    createMultiSelectPlugin($('select[name="status[]"]'), {
+        menuWidth: 130,
+        selectedList: 0,
+        groupColumns: false,
+        buttonWidth:150,
+        noneSelectedText: '--状态--'
+    });
+    
     $("input[name='name']").autocomplete();
     $.datepicker.formatDate('yy-mm-dd');
     $("#startTime").datepicker({

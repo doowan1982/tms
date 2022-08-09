@@ -12,13 +12,12 @@ include_once(Yii::getAlias('@view/common/header.php'));
                 <input type="text" name='name' placeholder='项目名称' class='input-100' value='<?= isset($this->context->parameters['name']) ? $this->context->parameters['name'] : ''?>'>
                 <input type="text" name='start_time' id='startTime' placeholder='起始时间' class='datepicker' value='<?= isset($this->context->parameters['start_time']) ? $this->context->parameters['start_time'] : ''?>'>
                 <input type="text" name='end_time'  id='endTime' placeholder='截至时间' class='datepicker' value='<?= isset($this->context->parameters['end_time']) ? $this->context->parameters['end_time'] : ''?>'>
-                <select name='status'>
-                    <option value=''>--全部状态--</option>
+                <select name='status[]' multiple="multiple">
                     <?php foreach($status as $key=>$name):?>
                         <?php
                             $selected = '';
                             $this->context->parameters = $this->context->parameters;
-                            if(isset($this->context->parameters['status']) && $this->context->parameters['status'] == $key){
+                            if(isset($this->context->parameters['status']) && in_array($key, $this->context->parameters['status'])){
                                 $selected = 'selected=true';
                             }
                         ?>
@@ -137,10 +136,15 @@ include_once(Yii::getAlias('@view/common/header.php'));
     </div>
 </script>
 <script type='text/javascript'>
-    $("select[name='status']" ).selectmenu({
-        'width' : 150,
-        'height' : 20
+
+    createMultiSelectPlugin($('select[name="status[]"]'), {
+        menuWidth: 130,
+        selectedList: 0,
+        buttonWidth:150,
+        groupColumns: false,
+        noneSelectedText: '--全部状态--'
     });
+
     $('.stat').click(function(){
         statTask('/project/stat', $(this).attr('data-id'), 'graphics');
         return false;

@@ -82,11 +82,33 @@ $array = $task->toArray();
                 <tr>
                     <td>实施人</td>
                     <td>
-                        <input type="text" id='receiver' value='<?= $receiver != null ? $receiver->real_name : '' ?>' placeholder='未指定则为领取任务' >
-                        <input type="hidden" name='receive_user_id' id='receiverId'value='<?= $array['receive_user_id'] ?>'>
+                        <select id='receiverId' name='receive_user_id'>
+                            <option>--请选择实施人--</option>
+                            <?php foreach($members as $member):?>
+                                <?php if($receiver != null && $receiver->id == $member->id):?>
+                                    <option value='<?= $member->id?>' selected><?= $member->real_name ?></option>
+                                <?php else:?>
+                                    <option value='<?= $member->id?>'><?= $member->real_name ?></option>
+                                <?php endif;?>
+                            <?php endforeach;?>
+                        </select>
                     </td>
                 </tr>
                 <?php endif;?>
+                <tr>
+                    <td>任务参与人</td>
+                    <td>
+                        <select id='participants' name='participants[]' multiple="multiple">
+                            <?php foreach($members as $member):?>
+                                <?php if(in_array($member->id, $participants)):?>
+                                    <option value='<?= $member->id?>' selected><?= $member->real_name ?></option>
+                                <?php else:?>
+                                    <option value='<?= $member->id?>'><?= $member->real_name ?></option>
+                                <?php endif;?>
+                            <?php endforeach;?>
+                        </select>
+                    </td>
+                </tr>
                 <tr>
                     <td>所在主任务</td>
                     <td>
@@ -105,7 +127,7 @@ $array = $task->toArray();
                     <td class='red'>任务内容</td>
                     <td>
                         <textarea name='description' id='description' rows="20" cols="40">
-                            <?= $task['description'] ?>
+                            <?= $task->taskDescription != null ?? $task->taskDescription->description ?>
                         </textarea> 
                     </td>
                 </tr>
@@ -182,7 +204,18 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
         }
     }
     toggleRemoveMainTaskButton();
+
+    createMultiSelectPlugin($('#participants'), {
+        noneSelectedText: '--请选择参与人--'
+    });
+
     $("input[name='name']").autocomplete();
+
+    $("#receiverId" ).selectmenu({
+        'width' : 200,
+        'height' : 20
+    });
+
     $("select[name='type']" ).selectmenu({
         'width' : 200,
         'height' : 20
@@ -202,35 +235,6 @@ include_once(Yii::getAlias('@view/jstpl/projectSearch.php'));
         slide: function(event, ui) {
             difficulty.val(ui.value / 100);
         }
-    });
-
-    $('#receiver').keyup(function(){
-        if($(this).val() === ''){
-            $('#receiverId').val('');
-        }
-    });
-
-
-    $('#receiver').click(function(){
-        var that = $(this);
-        request('/member/list', function(rep){
-            var data = rep.data;
-            for(var i in data){
-                data[i] = {
-                    label : data[i].username + ' ' + data[i].real_name + ' [' + data[i]['id'] + ']',
-                    value : data[i].real_name
-                };
-            }
-            that.autocomplete({
-                source : data, 
-                select : function(event, ui){
-                    //匹配id
-                    var id = ui.item.label.replace(/.*\[(\d+)\]$/, '$1');
-                    $('#receiverId').val(id);
-                }
-            });
-        }, false);
-        
     });
 
     $('body').on('click', '.chooseTheProject', function(){

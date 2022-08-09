@@ -17,7 +17,7 @@ class DbSender extends \app\models\MessageSender{
         $tool = Yii::$app->get('toolService');
 
         if($this->member == null){
-            self::error("用户不存在或已禁用，无法发送消息【{$this->message}】");
+            self::e("用户不存在或已禁用，无法发送消息【{$this->message}】");
             return true;
         }
         

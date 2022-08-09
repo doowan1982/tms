@@ -6,31 +6,29 @@ $parameters = $this->context->parameters;
 ?>
 <div class='block-container'>
     <div class='container-content'>
-        <div class='container-form' >
+        <div class='container-form' style='line-height: 30px;' >
             <form action="/project/pending-tasks" id='searchForm' method="get" class='float-left'>
                 <input type="text" name='name' placeholder='任务描述' class='input-100' value='<?= isset($parameters['name']) ? $parameters['name'] : ''?>'>
                 <input type="text" name='start_time' placeholder='发布起始时间' class='datepicker' style='width:120px;' value='<?= isset($parameters['start_time']) ? $parameters['start_time'] : ''?>'>
                 <input type="text" name='end_time' placeholder='发布截至时间' class='datepicker' style='width:120px;' value='<?= isset($parameters['end_time']) ? $parameters['end_time'] : ''?>'>
-                <select name='type'>
-                    <option value=''>--类型--</option>
+                <select name='type[]' multiple="multiple">
                     <?php foreach($types as $category):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['type']) && $parameters['type'] == $category->id){
+                            if(isset($parameters['type']) && in_array($category->id, $parameters['type'])){
                                 $selected = 'selected=true';
                             }
                         ?>
                         <?= "<option value='{$category->id}'{$selected}>{$category->name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
-                <select name='priority'>
-                    <option value=''>--优先级--</option>
+                <select name='priority[]' multiple="multiple">
                     <?php foreach($priorities as $key=>$name):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['priority']) && $parameters['priority'] == $key){
+                            if(isset($parameters['priority']) && in_array($key, $parameters['priority'])){
                                 $selected = 'selected=true';
                             }
                         ?>
@@ -113,9 +111,19 @@ $parameters = $this->context->parameters;
 <script type='text/javascript'>
     $("button").button();
 
-    $("select" ).selectmenu({
-        'width' : 110,
-        'height' : 20
+    createMultiSelectPlugin($('select[name="type[]"]'), {
+        menuWidth: 130,
+        buttonWidth:150,
+        selectedList: 0,
+        groupColumns: false,
+        noneSelectedText: '--类型--'
+    });
+    createMultiSelectPlugin($('select[name="priority[]"]'), {
+        menuWidth: 130,
+        buttonWidth:150,
+        selectedList: 0,
+        groupColumns: false,
+        noneSelectedText: '--优先级--'
     });
 
     var checkboxGroup = new CheckboxGroup();

@@ -74,6 +74,21 @@ class Member extends \app\base\BaseAR{
     }
 
     /**
+     * 当前Member是否已经参与$task中
+     * @param  Task    $task             
+     * @param  array   $taskParticipants
+     * @return TaskParticipants 如果为参与则返回null
+     */
+    public function isParticipantTask(Task $task, array $taskParticipants){
+        foreach($taskParticipants as $taskParticipant){
+            if($task->id == $taskParticipant->task_id && $taskParticipant->participant === $this->id){
+                return $taskParticipant;
+            }
+        }
+        return null;
+    }
+
+    /**
      * @inheritdoc
      */
     public function beforeSave($insert){
@@ -86,6 +101,11 @@ class Member extends \app\base\BaseAR{
 
     public function getGroups(){
         return $this->hasMany(MemberRoleGroup::class, ['member_id' => 'id'])->joinWith('role');
+    }
+
+
+    public function getParticipationTasks(){
+        return $this->hasMany(TaskParticipants::class, ['participant' => 'id']);
     }
 
 }

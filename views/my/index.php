@@ -10,84 +10,90 @@ include_once(Yii::getAlias('@view/common/header.php'));
 <div class='block-container'>
     <div class='container-content'>
         <div id="tabs">
-          <ul>
-            <li><a href="#fragment-1"><span>任务进度</span></a></li>
-            <li><a href="#fragment-2"><span>最近参与</span></a></li>
-            <li><a href="#fragment-3"><span>任务统计</span></a></li>
-          </ul>
-          <div id="fragment-1">
-              <div class='table-container'>
-                <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
-                    <thead>
-                    <tr>
-                        <td width="70">编号</td>
-                        <td width="40%">任务名称</td>
-                        <td width="*">进度</td>
-                        <td width="80">剩余时长[天]</td>
-                        <td width="150">开始时间<br>预期时长</td>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php if(count($progresses) > 0):?>
-                        <?php foreach($progresses as $progress):?>
-                            <?php 
-                                $task = $progress->task;
-                                $id = "bar{$task->id}";
-                            ?>
-                            <tr>
-                                <td><?= $task->id ?></td>
-                                <td>【<?=$task->project->name?>】<?= $task->name ?></td>
-                                <td>
-                                  <div id='<?= $id ?>'></div>
-                                  <script type="text/javascript">
-                                      $('#<?= $id ?>').progressbar({
-                                        max : <?= $progress->getTotalTime() ?>,
-                                        value: <?= $progress->getUsedTime() ?>
-                                      });
-                                  </script>
-                                </td>
-                                <td><?= $progress->getRemainTime() ?></td>
-                                <td>
-                                    <?= date('Y-m-d H:i:s', $progress->startTime) ?>
-                                    <br>
-                                    <?= date('Y-m-d H:i:s', $progress->task->expected_finish_time) ?>
-                                </td>
-                            </tr>
-                        <?php endforeach;?>
-                    <?php else:?>
-                        <tr><td colspan="6" align="center">暂无任务</td></tr>
-                    <?php endif;?>
-                    </tbody>
-                </table>
-            </div>
+            <ul>
+                <li><a href="#fragment-1"><span>最近参与</span></a></li>
+                <li><a href="#fragment-2"><span>任务进度</span></a></li>
+                <li><a href="#fragment-3"><span>任务统计</span></a></li>
+            </ul>
+            <div id="fragment-1">
+                <div class='table-container'>
+                    <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
+                        <thead>
+                        <tr>
+                            <td width="30%">任务名称</td>
+                            <td width="*">动态</td>
+                            <td width="150">时间</td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php if(count($recentTouchTasks) > 0):?>
+                            <?php foreach($recentTouchTasks as $touchTask):?>
+                                <?php 
+                                    if(!$touchTask->task){
+                                        continue;
+                                    } 
+                                ?>
+                                <tr>
+                                    <td><a href='/project/tasks?project_id=<?= $touchTask->task->project_id ?>&task_id=<?=$touchTask->task_id?>' title='查看任务'><?= $touchTask->task->name ?></a></td>
+                                    <td><?= preg_replace('/<a.*[^>]>/', '', $touchTask->message) ?></td>
+                                    <td>
+                                        <?= date('Y-m-d H:i:s', $touchTask->create_time) ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach;?>
+                        <?php else:?>
+                            <tr><td colspan="6" align="center">暂无任务</td></tr>
+                        <?php endif;?>
+                        </tbody>
+                    </table>
+                </div>  
+              
           </div>
           <div id="fragment-2">
-              <div class='table-container'>
-                <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
-                    <thead>
-                    <tr>
-                        <td width="30%">任务名称</td>
-                        <td width="*">动态</td>
-                        <td width="150">时间</td>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php if(count($recentTouchTasks) > 0):?>
-                        <?php foreach($recentTouchTasks as $touchTask):?>
-                            <tr>
-                                <td><a href='/project/tasks?project_id=<?= $touchTask->task->project_id ?>&task_id=<?=$touchTask->task_id?>' title='查看任务'><?= $touchTask->task->name ?></a></td>
-                                <td><?= preg_replace('/<a.*[^>]>/', '', $touchTask->message) ?></td>
-                                <td>
-                                    <?= date('Y-m-d H:i:s', $touchTask->create_time) ?>
-                                </td>
-                            </tr>
-                        <?php endforeach;?>
-                    <?php else:?>
-                        <tr><td colspan="6" align="center">暂无任务</td></tr>
-                    <?php endif;?>
-                    </tbody>
-                </table>
-            </div>
+                <div class='table-container'>
+                    <table border=0 cellpadding=0 cellspacing=1 class=table-data width='100%'>
+                        <thead>
+                        <tr>
+                            <td width="70">编号</td>
+                            <td width="40%">任务名称</td>
+                            <td width="*">进度</td>
+                            <td width="80">剩余时长[天]</td>
+                            <td width="150">开始时间<br>预期时长</td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php if(count($progresses) > 0):?>
+                            <?php foreach($progresses as $progress):?>
+                                <?php 
+                                    $task = $progress->task;
+                                    $id = "bar{$task->id}";
+                                ?>
+                                <tr>
+                                    <td><?= $task->id ?></td>
+                                    <td>【<?=$task->project->name?>】<?= $task->name ?></td>
+                                    <td>
+                                      <div id='<?= $id ?>'></div>
+                                      <script type="text/javascript">
+                                          $('#<?= $id ?>').progressbar({
+                                            max : <?= $progress->getTotalTime() ?>,
+                                            value: <?= $progress->getUsedTime() ?>
+                                          });
+                                      </script>
+                                    </td>
+                                    <td><?= $progress->getRemainTime() ?></td>
+                                    <td>
+                                        <?= date('Y-m-d H:i:s', $progress->startTime) ?>
+                                        <br>
+                                        <?= date('Y-m-d H:i:s', $progress->task->expected_finish_time) ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach;?>
+                        <?php else:?>
+                            <tr><td colspan="6" align="center">暂无任务</td></tr>
+                        <?php endif;?>
+                        </tbody>
+                    </table>
+                </div>
           </div>
           <div id="fragment-3">
             <div class='container-form' >

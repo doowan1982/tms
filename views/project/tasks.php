@@ -13,39 +13,36 @@ $parameters = $this->context->parameters;
                 <input type="text" id='name' name='username' placeholder='用户名/手机' class='input-100' value='<?= isset($parameters['username']) ? $parameters['username'] : ''?>'>
                 <input type="text" name='start_time' placeholder='实施起始时间' class='datepicker' style='width:120px;' value='<?= isset($parameters['start_time']) ? $parameters['start_time'] : ''?>'>
                 <input type="text" name='end_time' placeholder='实施截至时间' class='datepicker' style='width:120px;' value='<?= isset($parameters['end_time']) ? $parameters['end_time'] : ''?>'>
-                <select name='type'>
-                    <option value=''>--类型--</option>
+                <select name='type[]' multiple="multiple">
                     <?php foreach($types as $category):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['type']) && $parameters['type'] == $category->id){
+                            if(isset($parameters['type']) && in_array($category->id, $parameters['type'])){
                                 $selected = 'selected=true';
                             }
                         ?>
                         <?= "<option value='{$category->id}'{$selected}>{$category->name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
-                <select name='priority'>
-                    <option value=''>--优先级--</option>
+                <select name='priority[]' multiple="multiple">
                     <?php foreach($priorities as $key=>$name):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['priority']) && $parameters['priority'] == $key){
+                            if(isset($parameters['priority']) && in_array($key, $parameters['priority'])){
                                 $selected = 'selected=true';
                             }
                         ?>
                         <?= "<option value='{$key}'{$selected}>{$name}</option>" ?>
                     <?php endforeach; ?>
                 </select>
-                <select name='status'>
-                    <option value=''>--状态--</option>
+                <select name='status[]' multiple="multiple">
                     <?php foreach($status as $key=>$name):?>
                         <?php
                             $selected = '';
                             $parameters = $this->context->parameters;
-                            if(isset($parameters['status']) && $parameters['status'] == $key){
+                            if(isset($parameters['status']) && in_array($key, $parameters['status'])){
                                 $selected = 'selected=true';
                             }
                         ?>
@@ -344,10 +341,31 @@ $parameters = $this->context->parameters;
 
     });
 
-    $("select" ).selectmenu({
-        'width' : 110,
-        'height' : 20
+
+    createMultiSelectPlugin($('select[name="type[]"]'), {
+        menuWidth: 130,
+        buttonWidth:150,
+        selectedList: 0,
+        groupColumns: false,
+        noneSelectedText: '--类型--'
     });
+
+    createMultiSelectPlugin($('select[name="priority[]"]'), {
+        menuWidth: 130,
+        buttonWidth:150,
+        selectedList: 0,
+        groupColumns: false,
+        noneSelectedText: '--优先级--'
+    });
+
+    createMultiSelectPlugin($('select[name="status[]"]'), {
+        menuWidth: 130,
+        buttonWidth:150,
+        selectedList: 0,
+        groupColumns: false,
+        noneSelectedText: '--状态--'
+    });
+
     $('.detail').click(function(){
         var that = $(this);
         var html = createDialogIframeWarpperHtml('detailDialog', that.attr('href'), 0.7, 0.8);

@@ -3,7 +3,7 @@ body, body *{
     padding:0px;
 }
 
-input{
+input[placeholder]{
     height:31px;
     line-height: 31px;
 }
@@ -223,4 +223,10 @@ li{
     background: url("/js/jquery-ui-1.12.1/images/ui-icons_444444_256x240.png") no-repeat -67px -146px;
     padding-right:13px;
     margin-left:4px;
+}
+
+.multiselect{
+    height: 34px;
+    padding-left:5px;
+    padding-right:5px;
 }

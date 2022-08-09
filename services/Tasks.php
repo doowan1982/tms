@@ -4,6 +4,8 @@ namespace app\services;
 use \Yii;   
 use app\records\Member;
 use app\records\Task;
+use app\records\TaskParticipants;
+use app\records\TaskDescription;
 use app\records\TaskLifecycle;
 use app\records\TaskDetail;
 use app\records\TaskLog;
@@ -275,6 +277,17 @@ class Tasks extends \app\base\Service{
             if(!$this->_saveTask($task, $project)){
                 return $this->setError('编辑失败');
             }
+
+            if($isNewRecord){
+                $this->trigger(self::EVENT_ADD_TASK_TO_PROJECT, $event);
+            }else{
+                $this->trigger(self::EVENT_AFTER_SAVE_TASK, $event);
+            }
+            
+            if(!$event->isValid){
+                return false;
+            }
+
             //与上一个实施人不同，则自动领取
             if($isAutoAllocate){
                 $taskService = $this;
@@ -297,13 +310,6 @@ class Tasks extends \app\base\Service{
         }catch(\Exception $e){
             $transaction->rollBack();
             return $this->setError($e->getMessage());
-        }
-
-        if($this->hasEventHandlers(self::EVENT_AFTER_SAVE_TASK)){
-            $this->trigger(
-                self::EVENT_AFTER_SAVE_TASK, 
-                $event
-            );
         }
         return $event->isValid;
     }
@@ -648,6 +654,16 @@ class Tasks extends \app\base\Service{
     }
 
     /**
+     * 根据Task保存描述信息
+     * @param  Task    $task        
+     * @param  TaskDescription $taskDescription
+     * @return boolean
+     */
+    public function saveTaskDescription(Task $task, TaskDescription $taskDescription){
+        return $taskDescription->updateDescription($task) !== false;
+    }
+
+    /**
      * 返回指定任务的周期进度
      * @param  Task   $task
      * @return array
@@ -889,11 +905,16 @@ class Tasks extends \app\base\Service{
      * @return array TaskLifecycle
      */
     public function getRecentTouchTasksByMember(Member $member, $num=20){
+        $query = TaskParticipants::find()
+                        ->select('task_id')
+                        ->where(['participant' => $member->id]);
+
         $query = TaskLifecycle::find()
                         ->select('max(id) as id')
-                        ->where(['member_id' => $member->id])
+                        ->where(['task_id' => $query])
                         ->groupBy('task_id')
                         ->orderBy(['id' => SORT_DESC]);
+
         return TaskLifecycle::find()->alias('tl')
                     ->joinWith('task')
                     ->limit($num)
@@ -903,6 +924,64 @@ class Tasks extends \app\base\Service{
                         'tl.id' => SORT_DESC
                     ])
                     ->all();
+    }
+
+    /**
+     * 返回指定任务的参与人
+     * @param  Task   $task
+     * @return array
+     */
+    public function getTaskParticipants(Task $task){
+        return TaskParticipants::find()
+                ->where([
+                    'task_id' => $task->id
+                ])
+                ->all();
+    }
+
+
+    /**
+     * 更新$task任务的参与者
+     * @param  Task   $task         
+     * @param  array  $participants 参与者的Member数组
+     * @return boolean
+     */
+    public function updateTaskParticipant(Task $task, array $participants){
+        $taskParticipants = $this->getTaskParticipants($task);
+        $participantIn = [];
+        foreach($participants as $participant){
+            $taskParticipant = $participant->isParticipantTask($task, $taskParticipants);
+             //未参与则加入
+            if($taskParticipant == null){
+                $participantIn[] = [$task->id, $participant->id];
+            }else{
+                foreach($taskParticipants as $k=>$v){
+                    if($v === $taskParticipant){
+                        unset($taskParticipants[$k]); //参与过的则删除
+                        break;
+                    }
+                }
+            }
+        }
+        $transaction = Yii::$app->db->beginTransaction();
+        try{
+            //移除被删除的参与者
+            foreach($taskParticipants as $taskParticipant){
+                $taskParticipant->delete();
+            }
+            if(count($participantIn) > 0){
+                Yii::$app->db->createCommand()->batchInsert(
+                    TaskParticipants::getTableName(),
+                    ['task_id', 'participant'],
+                    $participantIn
+                )->execute();
+            }
+            $transaction->commit();
+        }catch(\Exception $e){
+            $transaction->rollBack();
+            return false;
+        }
+        return true;
     }
 
     private function _getTasks($projectId, array $id){
@@ -983,11 +1062,6 @@ class Tasks extends \app\base\Service{
                     'task' => $task,
                     'project' => $project,
                     'source' => $task->project,
-                ]));
-        }else if($task->getIsNewRecord()){
-            $this->trigger(self::EVENT_ADD_TASK_TO_PROJECT, new TaskEvent([
-                    'task' => $task,
-                    'project' => $project,
                 ]));
         }
         $task->project_id = $project->id;

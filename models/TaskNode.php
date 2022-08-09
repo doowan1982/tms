@@ -28,12 +28,6 @@ class TaskNode extends \app\base\BaseModel{
      */
     public $projectName;
 
-    /**
-     * 上一级TaskNode
-     * @var TaskNode $parent
-     */
-    private $parent;
-
     public $nodes = [];
 
     public $status;
@@ -44,24 +38,20 @@ class TaskNode extends \app\base\BaseModel{
 
     public $typeName;
 
-    public function __construct($parent, $config = []){
-        parent::__construct($config);
-        $this->parent = $parent;
-    }
-
     /**
      * 查找对应id的TaskNode
      * @param  integer $id
      * @return TaskNode
      */
     public function find($id){
-        foreach($this->nodes as $node){
-            if($node->find($id)){
-                return $node;
-            }
-        }
         if($id === $this->id){
             return $this;
+        }
+        foreach($this->nodes as $node){
+            $node = $node->find($id);
+            if(is_object($node)){
+                return $node;
+            }
         }
         return null;
     }
@@ -96,20 +86,17 @@ class TaskNode extends \app\base\BaseModel{
         $tasks = $service->getAllForkTasks($task);
         //按树形生成任务数据
         $categories = $service->getTaskCategories();
-        $root = new static(null, self::getNodeAttribute($task, $categories));
-        $nodes = [$root];
+        $root = new static(self::getNodeAttribute($task, $categories));
         while(true){
-            $node = array_shift($nodes);
             foreach($tasks as $k=>$task){
-                $n = $node->find($task->task_id);
+                $n = $root->find($task->task_id);
                 if($n != null){
-                    $newNode = new static($n, self::getNodeAttribute($task, $categories));
+                    $newNode = new static(self::getNodeAttribute($task, $categories));
                     $n->setNode($newNode);
-                    $nodes[] = $newNode;
                     unset($tasks[$k]);
                 }
             }
-            if(count($nodes) === 0){
+            if(count($tasks) === 0){
                 break;
             }
         }

@@ -34,6 +34,15 @@ class TaskLog extends Task{
         return BaseAR::beforeSave($insert);
     }
 
+    public function afterSave($insert, $attributes){
+        parent::afterSave($insert, $attributes);
+        \Yii::$app->get('taskService')->saveTaskDescription($this, new TaskLogDescription());
+    }
+
+    public function getTaskDescription(){
+        return $this->hasOne(TaskLogDescription::class, ['task_log_id' => 'log_id']);
+    }
+
     /**
      * @inheritdoc
      */

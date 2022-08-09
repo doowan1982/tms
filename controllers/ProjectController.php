@@ -7,6 +7,7 @@ use yii\web\Response;
 use app\models\Position;
 use app\records\Project;
 use app\records\Task;
+use app\records\TaskDescription;
 use app\models\UploadForm;
 use app\helpers\Helper;
 use app\services\Tasks;
@@ -157,7 +158,7 @@ class ProjectController extends BaseController{
     public function actionTaskDetail(){
         $task = \Yii::$app->get('taskService')->getTaskById($this->get('id'));
         exit($this->renderFile(Yii::getAlias('@view/project/taskDetail.php'), [
-            'data' => $task->description
+            'data' => $task->taskDescription->description
         ]));
     }
 
@@ -177,20 +178,47 @@ class ProjectController extends BaseController{
         }
         unset($data['receive_user_id']); //此处不更新接收人数据，如果指定，则在saveTask中自动分配
         $task->setAttributes($data);
+        $task->description = $data['description'];
 
         $currentMember = $this->getMember();
 
-        //记录任务的进程信息
-        $taskService->on(Tasks::EVENT_AFTER_SAVE_TASK, function($event) use( $currentMember){
-
-            $message = '新增任务';
-            if(!$event->task->getIsNewRecord()){
-                $message = "修改任务";
+        //新增任务事件
+        $taskService->on(Tasks::EVENT_ADD_TASK_TO_PROJECT, function($event) use($currentMember){
+            $message = "项目【{$event->project->name}】新增任务【{$event->task->name}】<a href='#' class='taskChangeLog' data-id='{$event->task->id}'>变更信息列表</a>";
+            $event->isValid = $event->sender->createTaskLifeCycle($event->task->id, $message, $currentMember->id);
+            if($event->isValid){
+                $event->isValid = $event->sender->saveTaskDescription($event->task, new TaskDescription());
             }
-            $message = "项目【{$event->project->name}】{$message}【{$event->task->name}】<a href='#' class='taskChangeLog' data-id='{$event->task->id}'>变更信息列表</a>";
+        });
+
+        //修改任务事件
+        $taskService->on(Tasks::EVENT_AFTER_SAVE_TASK, function($event) use($currentMember){
+            $message = "项目【{$event->project->name}】修改任务【{$event->task->name}】<a href='#' class='taskChangeLog' data-id='{$event->task->id}'>变更信息列表</a>";
             
             $event->isValid = $event->sender->createTaskLifeCycle($event->task->id, $message, $currentMember->id);
+ 
+            if($event->isValid){
+                $event->isValid = $event->sender->saveTaskDescription($event->task, $event->task->taskDescription);
+            }
         });
+
+        //处理参与者
+        $participants = $data['participants'] ?? [];
+        if($member != null){
+            $participants[] = $member->id;
+        }
+        $participants = array_unique($participants);
+        $participants = Yii::$app->get('userService')->getMembers([
+                'id' => $participants
+            ]);
+        if(count($participants) > 0){
+            $taskService->on(Tasks::EVENT_ADD_TASK_TO_PROJECT, function($event) use($participants){
+                $event->sender->updateTaskParticipant($event->task, $participants);
+            });     
+            $taskService->on(Tasks::EVENT_AFTER_SAVE_TASK, function($event) use($participants){
+                $event->sender->updateTaskParticipant($event->task, $participants);
+            });             
+        }
 
         if(!$taskService->saveTask($task, $member)){
             return $this->error($taskService->getErrorString());
@@ -218,6 +246,7 @@ class ProjectController extends BaseController{
             $parentTask = $service->getTaskById($taskId);
         }
 
+        $participants = [];
         $task = $service->getTaskById($id);
 
         if($task == null){
@@ -227,8 +256,12 @@ class ProjectController extends BaseController{
                 'task_id' => $parentTask != null ? $parentTask->id : 0,
                 'receive_user_id' => 0,
             ]);
-        }else if($task->task_id > 0){
-            $parentTask = $service->getTaskById($task->task_id);
+        }else{
+            if($task->task_id > 0){
+                $parentTask = $service->getTaskById($task->task_id);
+            }
+            $participants = $service->getTaskParticipants($task);
+            $participants = array_unique(ArrayHelper::getColumn($participants, 'participant'));
         }
 
         if(!$service->isActived($task)){
@@ -236,8 +269,9 @@ class ProjectController extends BaseController{
         }
 
         $receiver = null;
+        $userService = Yii::$app->get('userService');
         if($task->receive_user_id > 0){
-            $receiver = Yii::$app->get('userService')->getMember($task->receive_user_id);
+            $receiver = $userService->getMember($task->receive_user_id);
         }
         $this->setPosition(new Position(['name' => '项目管理', 'jumpUrl' => Constants::PROJECT_HOME]));
         $this->setPosition(new Position([
@@ -252,6 +286,8 @@ class ProjectController extends BaseController{
                 'receiver' => $receiver,
                 'priorities' => Task::getPriorities(),
                 'types' => $service->getTaskCategories(),
+                'members' => $userService->getMembers(),
+                'participants' => $participants
             ]);
     }
 
